@@ -23,6 +23,11 @@ export const getYouTubeId = (url: string): string | null => {
   return (match && match[2].length === 11) ? match[2] : null;
 };
 
+export const isImageUrl = (url: string): boolean => {
+  if (url.startsWith('data:image')) return true;
+  return /\.(jpeg|jpg|gif|png|webp|svg|bmp)$/i.test(url.split('?')[0]);
+};
+
 export const getYouTubeEmbedUrl = (videoId: string): string => {
   // Minimal parameters to avoid Error 153.
   // We removed 'enablejsapi' and 'origin' as they cause strict origin checks that fail in many environments.

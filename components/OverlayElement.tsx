@@ -144,12 +144,13 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
       {/* Content */}
       <div className="w-full h-full overflow-hidden bg-slate-800/50 relative">
         {item.type === ContentType.IMAGE ? (
-          <img 
+          <div
             key={`${item.id}-${refreshKey}`}
-            src={item.src} 
-            alt="overlay" 
-            className="w-full h-full object-cover pointer-events-none" 
-            style={{ opacity: item.opacity }}
+            className="w-full h-full bg-cover bg-center bg-no-repeat pointer-events-none"
+            style={{ 
+              backgroundImage: `url("${item.src}")`, 
+              opacity: item.opacity 
+            }}
           />
         ) : item.type === ContentType.YOUTUBE ? (
           <>

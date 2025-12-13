@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize } from 'lucide-react';
+import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link } from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
 import { ContentType } from '../types';
 
@@ -99,6 +99,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             title="Add Image Overlay"
           >
             <Plus size={18} /> <ImageIcon size={18} />
+          </button>
+          <button 
+            onClick={() => onOpenUrlModal("Add Web Image Overlay", (url) => onAddOverlay(ContentType.IMAGE, url))}
+            className={BTN_PRIMARY}
+            title="Add Web Image Overlay"
+          >
+             <Plus size={18} /> <Link size={18} />
           </button>
           <button 
             onClick={() => onOpenUrlModal("Add Web Page Overlay", (url) => onAddOverlay(ContentType.IFRAME, url))}

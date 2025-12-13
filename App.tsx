@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { OverlayElement } from './components/OverlayElement';
 import { OverlayItem, AppState, ContentType, DEFAULT_WIDTH, DEFAULT_HEIGHT } from './types';
-import { generateId, downloadJson, getYouTubeId, getYouTubeEmbedUrl } from './utils/helpers';
+import { generateId, downloadJson, getYouTubeId, getYouTubeEmbedUrl, isImageUrl } from './utils/helpers';
 import { Eye, X, Maximize, Minimize } from 'lucide-react';
 
 // Helper to check for existing saved state
@@ -85,6 +85,9 @@ const App: React.FC = () => {
     if (ytId) {
       finalType = ContentType.YOUTUBE;
       finalSrc = ytId;
+    } else if (isImageUrl(src)) {
+      // Auto-detect image
+      finalType = ContentType.IMAGE;
     }
 
     // Determine reasonable default dimensions based on content type
@@ -114,6 +117,8 @@ const App: React.FC = () => {
     const ytId = getYouTubeId(src);
     if (ytId) {
       setBackground({ type: ContentType.YOUTUBE, src: ytId });
+    } else if (isImageUrl(src)) {
+      setBackground({ type: ContentType.IMAGE, src });
     } else {
       setBackground({ type, src });
     }
@@ -139,6 +144,8 @@ const App: React.FC = () => {
        const ytId = getYouTubeId(newUrl);
        if (ytId) {
          handleUpdateOverlay(id, { type: ContentType.YOUTUBE, src: ytId });
+       } else if (isImageUrl(newUrl)) {
+         handleUpdateOverlay(id, { type: ContentType.IMAGE, src: newUrl });
        } else {
          handleUpdateOverlay(id, { src: newUrl });
        }
@@ -290,10 +297,9 @@ const App: React.FC = () => {
         <div className="absolute inset-0 min-w-full min-h-full flex items-center justify-center pointer-events-none z-0">
           {background.src ? (
             background.type === ContentType.IMAGE ? (
-              <img 
-                src={background.src} 
-                alt="Background" 
-                className="w-full h-full object-cover opacity-100" 
+              <div 
+                className="w-full h-full bg-no-repeat bg-center bg-cover opacity-100"
+                style={{ backgroundImage: `url("${background.src}")` }}
               />
             ) : background.type === ContentType.YOUTUBE ? (
               <div className="absolute inset-0 w-full h-full overflow-hidden">
