@@ -416,6 +416,7 @@ const App: React.FC = () => {
                 src={background.src} 
                 className="w-full h-full border-none pointer-events-auto" 
                 title="Background Page"
+                referrerPolicy="no-referrer"
               />
             )
           ) : (
@@ -482,7 +483,7 @@ const App: React.FC = () => {
               <input 
                 autoFocus
                 type="text" 
-                placeholder="https://example.com" 
+                placeholder="https://example.com or http://example.com" 
                 className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-600 transition-all"
                 value={urlInput}
                 onChange={e => setUrlInput(e.target.value)}

@@ -174,6 +174,7 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
               className="w-full h-full pointer-events-none" 
               title={`frame-${item.id}`}
               style={{ opacity: item.opacity }}
+              referrerPolicy="no-referrer"
             />
           </>
         )}
