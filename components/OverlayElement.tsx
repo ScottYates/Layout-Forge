@@ -182,7 +182,13 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
       {/* Controls Overlay (Visible on Select) */}
       {(isSelected) && (
         <>
-          {/* Resize Handles */}
+          {/* Edge Resize Handles */}
+          <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-40" onMouseDown={(e) => handleResizeStart(e, 'n')} />
+          <div className="absolute -bottom-1 left-2 right-2 h-2 cursor-s-resize z-40" onMouseDown={(e) => handleResizeStart(e, 's')} />
+          <div className="absolute top-2 bottom-2 -left-1 w-2 cursor-w-resize z-40" onMouseDown={(e) => handleResizeStart(e, 'w')} />
+          <div className="absolute top-2 bottom-2 -right-1 w-2 cursor-e-resize z-40" onMouseDown={(e) => handleResizeStart(e, 'e')} />
+
+          {/* Corner Resize Handles */}
           <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-blue-500 cursor-nw-resize rounded-full border border-white z-50" onMouseDown={(e) => handleResizeStart(e, 'nw')} />
           <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-blue-500 cursor-ne-resize rounded-full border border-white z-50" onMouseDown={(e) => handleResizeStart(e, 'ne')} />
           <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-blue-500 cursor-sw-resize rounded-full border border-white z-50" onMouseDown={(e) => handleResizeStart(e, 'sw')} />

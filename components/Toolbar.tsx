@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link, FileJson } from 'lucide-react';
+import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link, FileJson, Bookmark } from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
 import { ContentType, OverlayItem } from '../types';
 
@@ -14,6 +14,7 @@ interface ToolbarProps {
   onOpenConfigModal: () => void;
   onHideUI: () => void;
   onToggleFullScreen: () => void;
+  onBookmark: () => void;
   isFullScreen: boolean;
 }
 
@@ -31,6 +32,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onOpenConfigModal,
   onHideUI,
   onToggleFullScreen,
+  onBookmark,
   isFullScreen
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +186,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           title="View/Edit Configuration JSON"
         >
           <FileJson size={16} />
+        </button>
+
+         <button 
+          onClick={onBookmark}
+          className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md transition-colors flex items-center gap-2 cursor-pointer"
+          title="Update URL to Bookmark Configuration"
+        >
+          <Bookmark size={16} />
         </button>
       </div>
     </div>

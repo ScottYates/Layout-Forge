@@ -48,10 +48,10 @@ const App: React.FC = () => {
             src: parsed.backgroundSrc || '' 
           });
           setOverlays(parsed.overlays || []);
-          // Clear URL to avoid state lock, or keep it? 
-          // Better to clean it so refreshing doesn't overwrite local changes immediately if not intended.
-          // For now, we leave it, but user can clear it.
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // Note: We deliberately do NOT remove the param here so the user can see it works,
+          // though we might want to if we want a clean URL. For bookmarking purposes, keeping it is helpful?
+          // Actually, if we bookmark, we want it there. If we just load, we might want to clean it up?
+          // Let's leave it.
           return;
         }
       } catch (e) {
@@ -281,6 +281,32 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // --- Bookmark Logic ---
+  
+  const handleBookmark = () => {
+    const state: AppState = {
+      backgroundType: background.type,
+      backgroundSrc: background.src,
+      overlays
+    };
+    try {
+      const json = JSON.stringify(state);
+      // Warning for large payloads (e.g. data URIs)
+      if (json.length > 5000) {
+        if (!window.confirm("The configuration is very large (likely due to images) and might not be bookmarkable in all browsers. Do you want to try updating the URL anyway?")) {
+          return;
+        }
+      }
+      
+      const url = new URL(window.location.href);
+      url.searchParams.set('config', json);
+      window.history.pushState({}, '', url.toString());
+      alert("URL has been updated! You can now bookmark this page to save this specific configuration.");
+    } catch(e) {
+      alert("Failed to generate bookmark URL.");
+    }
+  };
+
   // --- Config Modal Logic ---
 
   const handleOpenConfig = () => {
@@ -356,6 +382,7 @@ const App: React.FC = () => {
           onOpenConfigModal={handleOpenConfig}
           onHideUI={() => setShowUI(false)}
           onToggleFullScreen={toggleFullScreen}
+          onBookmark={handleBookmark}
           isFullScreen={isFullScreen}
         />
       )}
