@@ -48,10 +48,6 @@ const App: React.FC = () => {
             src: parsed.backgroundSrc || '' 
           });
           setOverlays(parsed.overlays || []);
-          // Note: We deliberately do NOT remove the param here so the user can see it works,
-          // though we might want to if we want a clean URL. For bookmarking purposes, keeping it is helpful?
-          // Actually, if we bookmark, we want it there. If we just load, we might want to clean it up?
-          // Let's leave it.
           return;
         }
       } catch (e) {
@@ -59,26 +55,33 @@ const App: React.FC = () => {
       }
     }
 
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
         const parsed: AppState = JSON.parse(saved);
-        setBackground({ type: parsed.backgroundType, src: parsed.backgroundSrc });
-        setOverlays(parsed.overlays);
-      } catch (e) {
-        console.error("Failed to load state", e);
+        if (parsed) {
+          setBackground({ type: parsed.backgroundType, src: parsed.backgroundSrc });
+          setOverlays(parsed.overlays);
+        }
       }
+    } catch (e) {
+      console.error("Failed to load state from local storage", e);
     }
   }, []);
 
   // Save to local storage whenever state changes
   useEffect(() => {
-    const state: AppState = {
-      backgroundType: background.type,
-      backgroundSrc: background.src,
-      overlays
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      const state: AppState = {
+        backgroundType: background.type,
+        backgroundSrc: background.src,
+        overlays
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      // Ignore errors (e.g. quota exceeded or security blocks)
+      console.warn("Failed to save state to local storage", e);
+    }
   }, [background, overlays]);
 
   // Handle Full Screen Change Events
