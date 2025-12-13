@@ -132,7 +132,7 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   return (
     <div
       ref={elementRef}
-      className={`absolute select-none group ${borderClass} transition-shadow duration-150`}
+      className={`absolute select-none group ${borderClass} transition-shadow duration-150 pointer-events-auto`}
       style={{
         transform: `translate(${item.x}px, ${item.y}px)`,
         width: item.width,

@@ -430,18 +430,17 @@ const App: React.FC = () => {
         {/* Overlay Layer - Renders on top of background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden z-10 pointer-events-none">
           {overlays.map(item => (
-            <div key={item.id} className="pointer-events-auto">
-              <OverlayElement
-                item={item}
-                isSelected={selectedId === item.id}
-                onSelect={setSelectedId}
-                onUpdate={handleUpdateOverlay}
-                onDelete={handleDeleteOverlay}
-                onEdit={handleEditOverlay}
-                onLayerAction={handleLayerAction}
-                scale={1}
-              />
-            </div>
+            <OverlayElement
+              key={item.id}
+              item={item}
+              isSelected={selectedId === item.id}
+              onSelect={setSelectedId}
+              onUpdate={handleUpdateOverlay}
+              onDelete={handleDeleteOverlay}
+              onEdit={handleEditOverlay}
+              onLayerAction={handleLayerAction}
+              scale={1}
+            />
           ))}
         </div>
       </div>
