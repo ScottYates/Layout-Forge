@@ -1,0 +1,5 @@
+{
+  "name": "Layout Forge",
+  "description": "A powerful layout editor that allows you to overlay images and iframes on a background, with full move and resize capabilities, local persistence, and import/export functionality.",
+  "requestFramePermissions": []
+}
