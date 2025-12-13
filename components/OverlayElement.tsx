@@ -28,17 +28,20 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDir, setResizeDir] = useState<string | null>(null);
   
-  // Use a timestamp for cache-busting instead of a simple counter
+  // Use a timestamp for cache-busting
   const [refreshTimestamp, setRefreshTimestamp] = useState<number>(0);
   
   const elementRef = useRef<HTMLDivElement>(null);
   const startPos = useRef({ x: 0, y: 0 });
   const startDims = useRef({ x: 0, y: 0, w: 0, h: 0 });
 
-  // Handle Refresh Timer
+  // Handle Refresh Interval
   useEffect(() => {
     if (!item.refreshInterval || item.refreshInterval <= 0) {
-      setRefreshTimestamp(0);
+      if (refreshTimestamp !== 0) {
+         // Optionally reset timestamp when interval is turned off, 
+         // but keeping it is harmless.
+      }
       return;
     }
 
@@ -46,7 +49,69 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
       setRefreshTimestamp(Date.now());
     }, item.refreshInterval * 1000);
     return () => clearInterval(intervalId);
-  }, [item.refreshInterval]);
+  }, [item.refreshInterval, refreshTimestamp]);
+
+  // --- Image Preloading & buffering logic ---
+  
+  // Determine the target URL we *want* to show
+  const getTargetUrl = useCallback(() => {
+    if (item.type === ContentType.YOUTUBE) {
+       return getYouTubeEmbedUrl(item.src);
+    }
+    
+    // For images and generic iframes, append timestamp if active
+    if (refreshTimestamp > 0 && !item.src.startsWith('data:')) {
+        const separator = item.src.includes('?') ? '&' : '?';
+        return `${item.src}${separator}t=${refreshTimestamp}`;
+    }
+    return item.src;
+  }, [item.src, item.type, refreshTimestamp]);
+
+  // The URL currently displayed in the DOM. 
+  // We initialize with the target so initial render is correct.
+  const [activeUrl, setActiveUrl] = useState<string>(getTargetUrl());
+
+  // Error/Retry Handler
+  const handleRetry = useCallback(() => {
+    if (item.src.startsWith('data:')) return; 
+    setTimeout(() => {
+      setRefreshTimestamp(Date.now());
+    }, 1000);
+  }, [item.src]);
+
+  // Effect: Handle URL transitions
+  useEffect(() => {
+    const target = getTargetUrl();
+
+    // If non-image, update immediately (iframes/youtube can't be easily preloaded invisibly)
+    if (item.type !== ContentType.IMAGE) {
+        setActiveUrl(target);
+        return;
+    }
+
+    // If target matches active, we don't need to do anything 
+    // (unless it's a retry, but the timestamp change makes target unique)
+    if (target === activeUrl) return;
+
+    // Preload image to prevent flash
+    let isMounted = true;
+    const img = new Image();
+    
+    img.onload = () => {
+        if (isMounted) setActiveUrl(target);
+    };
+    
+    img.onerror = () => {
+        if (isMounted) handleRetry();
+    };
+
+    img.src = target;
+
+    return () => { isMounted = false; };
+  }, [getTargetUrl, item.type, activeUrl, handleRetry]);
+
+
+  // --- Interaction Handlers ---
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -134,22 +199,9 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   
   const borderClass = isSelected ? 'border-2 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.5)]' : 'border border-transparent hover:border-slate-500/50';
 
-  // Helper to generate the display URL with cache busting if needed
-  const getDisplayUrl = () => {
-    if (item.type === ContentType.YOUTUBE) {
-       return getYouTubeEmbedUrl(item.src);
-    }
-    
-    // For images and generic iframes, append timestamp if active
-    if (refreshTimestamp > 0 && !item.src.startsWith('data:')) {
-        const separator = item.src.includes('?') ? '&' : '?';
-        return `${item.src}${separator}t=${refreshTimestamp}`;
-    }
-    return item.src;
-  };
-
-  const displayUrl = getDisplayUrl();
-  const contentKey = `${item.id}-${refreshTimestamp}`;
+  // Use a stable key for the content to prevent unmounting/remounting on refresh
+  // We only want to remount if the TYPE changes.
+  const contentKey = item.type;
 
   return (
     <div
@@ -166,20 +218,21 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
       {/* Content */}
       <div className="w-full h-full overflow-hidden bg-slate-800/50 relative">
         {item.type === ContentType.IMAGE ? (
-          <div
+          <img
             key={contentKey}
-            className="w-full h-full bg-cover bg-center bg-no-repeat pointer-events-none"
-            style={{ 
-              backgroundImage: `url("${displayUrl}")`, 
-              opacity: item.opacity 
-            }}
+            src={activeUrl}
+            alt="Overlay"
+            className="w-full h-full object-cover object-center pointer-events-none select-none block"
+            style={{ opacity: item.opacity }}
+            // We still keep onError here as a fallback, e.g. if initial load fails
+            onError={handleRetry}
           />
         ) : item.type === ContentType.YOUTUBE ? (
           <>
             <div className="absolute inset-0 z-10 bg-transparent" />
             <iframe 
               key={contentKey}
-              src={displayUrl}
+              src={activeUrl}
               className="w-full h-full pointer-events-none" 
               title={`frame-${item.id}`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -192,7 +245,7 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
             <div className="absolute inset-0 z-10 bg-transparent" />
             <iframe 
               key={contentKey}
-              src={displayUrl} 
+              src={activeUrl} 
               className="w-full h-full pointer-events-none" 
               title={`frame-${item.id}`}
               style={{ opacity: item.opacity }}
