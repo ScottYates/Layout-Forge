@@ -27,7 +27,9 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDir, setResizeDir] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Use a timestamp for cache-busting instead of a simple counter
+  const [refreshTimestamp, setRefreshTimestamp] = useState<number>(0);
   
   const elementRef = useRef<HTMLDivElement>(null);
   const startPos = useRef({ x: 0, y: 0 });
@@ -35,12 +37,15 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
 
   // Handle Refresh Timer
   useEffect(() => {
-    if (item.refreshInterval && item.refreshInterval > 0) {
-      const intervalId = setInterval(() => {
-        setRefreshKey(prev => prev + 1);
-      }, item.refreshInterval * 1000);
-      return () => clearInterval(intervalId);
+    if (!item.refreshInterval || item.refreshInterval <= 0) {
+      setRefreshTimestamp(0);
+      return;
     }
+
+    const intervalId = setInterval(() => {
+      setRefreshTimestamp(Date.now());
+    }, item.refreshInterval * 1000);
+    return () => clearInterval(intervalId);
   }, [item.refreshInterval]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -129,6 +134,23 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   
   const borderClass = isSelected ? 'border-2 border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.5)]' : 'border border-transparent hover:border-slate-500/50';
 
+  // Helper to generate the display URL with cache busting if needed
+  const getDisplayUrl = () => {
+    if (item.type === ContentType.YOUTUBE) {
+       return getYouTubeEmbedUrl(item.src);
+    }
+    
+    // For images and generic iframes, append timestamp if active
+    if (refreshTimestamp > 0 && !item.src.startsWith('data:')) {
+        const separator = item.src.includes('?') ? '&' : '?';
+        return `${item.src}${separator}t=${refreshTimestamp}`;
+    }
+    return item.src;
+  };
+
+  const displayUrl = getDisplayUrl();
+  const contentKey = `${item.id}-${refreshTimestamp}`;
+
   return (
     <div
       ref={elementRef}
@@ -145,10 +167,10 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
       <div className="w-full h-full overflow-hidden bg-slate-800/50 relative">
         {item.type === ContentType.IMAGE ? (
           <div
-            key={`${item.id}-${refreshKey}`}
+            key={contentKey}
             className="w-full h-full bg-cover bg-center bg-no-repeat pointer-events-none"
             style={{ 
-              backgroundImage: `url("${item.src}")`, 
+              backgroundImage: `url("${displayUrl}")`, 
               opacity: item.opacity 
             }}
           />
@@ -156,8 +178,8 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
           <>
             <div className="absolute inset-0 z-10 bg-transparent" />
             <iframe 
-              key={`${item.id}-${refreshKey}`}
-              src={getYouTubeEmbedUrl(item.src)}
+              key={contentKey}
+              src={displayUrl}
               className="w-full h-full pointer-events-none" 
               title={`frame-${item.id}`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -169,8 +191,8 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
           <>
             <div className="absolute inset-0 z-10 bg-transparent" />
             <iframe 
-              key={`${item.id}-${refreshKey}`}
-              src={item.src} 
+              key={contentKey}
+              src={displayUrl} 
               className="w-full h-full pointer-events-none" 
               title={`frame-${item.id}`}
               style={{ opacity: item.opacity }}
