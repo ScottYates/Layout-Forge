@@ -3,7 +3,7 @@ import { Toolbar } from './components/Toolbar';
 import { OverlayElement } from './components/OverlayElement';
 import { OverlayItem, AppState, ContentType, DEFAULT_WIDTH, DEFAULT_HEIGHT } from './types';
 import { generateId, downloadJson, getYouTubeId, getYouTubeEmbedUrl, isImageUrl } from './utils/helpers';
-import { Eye, X, Maximize, Minimize } from 'lucide-react';
+import { Eye, X, Maximize, Minimize, Clipboard, Check } from 'lucide-react';
 
 // Helper to check for existing saved state
 const STORAGE_KEY = 'layout_forge_state';
@@ -27,10 +27,38 @@ const App: React.FC = () => {
   } | null>(null);
   const [urlInput, setUrlInput] = useState('');
 
-  // --- Persistence ---
+  // Config JSON Modal
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [configJson, setConfigJson] = useState('');
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
-  // Load from local storage on mount
+  // --- Persistence & Initialization ---
+
+  // Load from URL or local storage on mount
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const configParam = params.get('config');
+
+    if (configParam) {
+      try {
+        const parsed: AppState = JSON.parse(decodeURIComponent(configParam));
+        if (parsed) {
+          setBackground({ 
+            type: parsed.backgroundType || ContentType.IMAGE, 
+            src: parsed.backgroundSrc || '' 
+          });
+          setOverlays(parsed.overlays || []);
+          // Clear URL to avoid state lock, or keep it? 
+          // Better to clean it so refreshing doesn't overwrite local changes immediately if not intended.
+          // For now, we leave it, but user can clear it.
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to parse config from URL", e);
+      }
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -139,6 +167,12 @@ const App: React.FC = () => {
     const item = overlays.find(o => o.id === id);
     const title = item?.type === ContentType.IMAGE ? "Edit Image Source" : "Edit URL";
     
+    // For YouTube items, reconstruct a watch URL for editing if possible, or just pass the ID
+    let displayValue = currentSrc;
+    if (item?.type === ContentType.YOUTUBE) {
+        displayValue = `https://www.youtube.com/watch?v=${currentSrc}`;
+    }
+
     openUrlModal(title, (newUrl) => {
        // Check if new URL is YouTube
        const ytId = getYouTubeId(newUrl);
@@ -149,7 +183,7 @@ const App: React.FC = () => {
        } else {
          handleUpdateOverlay(id, { src: newUrl });
        }
-    }, currentSrc);
+    }, displayValue);
   };
 
   // Reorder Logic
@@ -247,6 +281,42 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // --- Config Modal Logic ---
+
+  const handleOpenConfig = () => {
+    const state: AppState = {
+      backgroundType: background.type,
+      backgroundSrc: background.src,
+      overlays
+    };
+    setConfigJson(JSON.stringify(state, null, 2));
+    setConfigModalOpen(true);
+    setCopyFeedback(false);
+  };
+
+  const handleApplyConfig = () => {
+    try {
+      const parsed: AppState = JSON.parse(configJson);
+      if (parsed) {
+        setBackground({ 
+          type: parsed.backgroundType || ContentType.IMAGE, 
+          src: parsed.backgroundSrc || '' 
+        });
+        setOverlays(parsed.overlays || []);
+        setConfigModalOpen(false);
+      }
+    } catch (e) {
+      alert("Invalid JSON configuration");
+    }
+  };
+
+  const handleCopyConfig = () => {
+    navigator.clipboard.writeText(configJson).then(() => {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    });
+  };
+
   const handleBackgroundClick = () => {
     setSelectedId(null);
   };
@@ -276,12 +346,14 @@ const App: React.FC = () => {
 
       {showUI && (
         <Toolbar 
+          currentBackground={background}
           onAddOverlay={handleAddOverlay}
           onSetBackground={handleSetBackground}
           onSave={handleExport}
           onLoad={handleImport}
           onClear={handleClear}
           onOpenUrlModal={openUrlModal}
+          onOpenConfigModal={handleOpenConfig}
           onHideUI={() => setShowUI(false)}
           onToggleFullScreen={toggleFullScreen}
           isFullScreen={isFullScreen}
@@ -407,6 +479,59 @@ const App: React.FC = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Configuration JSON Modal */}
+      {configModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+           <div className="bg-slate-800 border border-slate-700 p-6 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                   Configuration JSON
+                </h3>
+                <button 
+                  onClick={() => setConfigModalOpen(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 mb-4">
+                <textarea 
+                  value={configJson}
+                  onChange={(e) => setConfigJson(e.target.value)}
+                  className="w-full h-full min-h-[300px] bg-slate-950 font-mono text-xs text-slate-300 p-4 rounded-lg border border-slate-700 focus:outline-none focus:border-blue-500 resize-none"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="flex justify-between items-center gap-4">
+                 <button 
+                   onClick={handleCopyConfig}
+                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${copyFeedback ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}
+                 >
+                   {copyFeedback ? <Check size={18} /> : <Clipboard size={18} />}
+                   {copyFeedback ? 'Copied!' : 'Copy to Clipboard'}
+                 </button>
+
+                 <div className="flex gap-3">
+                   <button 
+                     onClick={() => setConfigModalOpen(false)}
+                     className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors font-medium"
+                   >
+                     Cancel
+                   </button>
+                   <button 
+                     onClick={handleApplyConfig}
+                     className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors font-bold shadow-lg shadow-blue-900/20"
+                   >
+                     Apply Configuration
+                   </button>
+                 </div>
+              </div>
+           </div>
         </div>
       )}
     </div>

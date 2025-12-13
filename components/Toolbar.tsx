@@ -1,15 +1,17 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link } from 'lucide-react';
+import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link, FileJson } from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
-import { ContentType } from '../types';
+import { ContentType, OverlayItem } from '../types';
 
 interface ToolbarProps {
+  currentBackground: { type: ContentType, src: string };
   onAddOverlay: (type: ContentType, src: string) => void;
   onSetBackground: (type: ContentType, src: string) => void;
   onSave: () => void;
   onLoad: (file: File) => void;
   onClear: () => void;
-  onOpenUrlModal: (title: string, callback: (src: string) => void) => void;
+  onOpenUrlModal: (title: string, callback: (src: string) => void, defaultValue?: string) => void;
+  onOpenConfigModal: () => void;
   onHideUI: () => void;
   onToggleFullScreen: () => void;
   isFullScreen: boolean;
@@ -19,12 +21,14 @@ const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 tex
 const BTN_SECONDARY = "flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-700 cursor-pointer";
 
 export const Toolbar: React.FC<ToolbarProps> = ({
+  currentBackground,
   onAddOverlay,
   onSetBackground,
   onSave,
   onLoad,
   onClear,
   onOpenUrlModal,
+  onOpenConfigModal,
   onHideUI,
   onToggleFullScreen,
   isFullScreen
@@ -59,6 +63,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     if (importInputRef.current) importInputRef.current.value = '';
   };
 
+  const getBackgroundUrlDefault = () => {
+    if (currentBackground.type === ContentType.YOUTUBE) {
+      return `https://www.youtube.com/watch?v=${currentBackground.src}`;
+    }
+    if (currentBackground.type === ContentType.IFRAME || currentBackground.type === ContentType.IMAGE) {
+      // Don't pre-fill if it's a massive data URI
+      if (currentBackground.src.startsWith('data:')) return '';
+      return currentBackground.src;
+    }
+    return '';
+  };
+
   return (
     <div className="h-16 bg-slate-800 border-b border-slate-700 flex items-center px-4 justify-between select-none shadow-md z-50 relative">
       <div className="flex items-center gap-4">
@@ -79,7 +95,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <ImageIcon size={18} />
           </button>
           <button 
-            onClick={() => onOpenUrlModal("Set Background Web Page", (url) => onSetBackground(ContentType.IFRAME, url))}
+            onClick={() => onOpenUrlModal(
+              "Set Background Web Page", 
+              (url) => onSetBackground(ContentType.IFRAME, url),
+              getBackgroundUrlDefault()
+            )}
             className={BTN_SECONDARY}
             title="Set Background URL"
           >
@@ -156,6 +176,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md transition-colors shadow-lg flex items-center gap-2 font-medium cursor-pointer"
         >
           <Download size={16} /> Export
+        </button>
+        
+        <button 
+          onClick={onOpenConfigModal}
+          className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md transition-colors flex items-center gap-2 cursor-pointer"
+          title="View/Edit Configuration JSON"
+        >
+          <FileJson size={16} />
         </button>
       </div>
     </div>
