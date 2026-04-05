@@ -7,6 +7,8 @@ import { Eye, X, Maximize, Minimize, Clipboard, Check } from 'lucide-react';
 
 // Helper to check for existing saved state
 const STORAGE_KEY = 'layout_forge_state';
+const REFRESH_INTERVAL = 8 * 60 * 60 * 1000; // 8 hours
+const LAST_REFRESH_KEY = 'layout_forge_last_refresh';
 
 const App: React.FC = () => {
   const [background, setBackground] = useState<{ type: ContentType, src: string }>({
@@ -91,6 +93,32 @@ const App: React.FC = () => {
     };
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  // --- Hard Refresh Logic (Every 8 Hours) ---
+  useEffect(() => {
+    const checkRefresh = () => {
+      const lastRefresh = localStorage.getItem(LAST_REFRESH_KEY);
+      const now = Date.now();
+
+      if (!lastRefresh) {
+        localStorage.setItem(LAST_REFRESH_KEY, now.toString());
+        return;
+      }
+
+      if (now - parseInt(lastRefresh) >= REFRESH_INTERVAL) {
+        // Update timestamp before reload to prevent infinite loop
+        localStorage.setItem(LAST_REFRESH_KEY, now.toString());
+        window.location.reload();
+      }
+    };
+
+    // Check immediately on mount
+    checkRefresh();
+
+    // Then check every minute
+    const interval = setInterval(checkRefresh, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   // --- Actions ---
