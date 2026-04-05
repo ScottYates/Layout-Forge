@@ -16,6 +16,8 @@ interface ToolbarProps {
   onToggleFullScreen: () => void;
   onBookmark: () => void;
   isFullScreen: boolean;
+  refreshIntervalHours: number;
+  onSetRefreshInterval: (hours: number) => void;
 }
 
 const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-600 cursor-pointer";
@@ -33,7 +35,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onHideUI,
   onToggleFullScreen,
   onBookmark,
-  isFullScreen
+  isFullScreen,
+  refreshIntervalHours,
+  onSetRefreshInterval
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
@@ -195,6 +199,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Bookmark size={16} />
         </button>
+
+        <div className="h-8 w-px bg-slate-600 mx-1"></div>
+
+        <div className="flex items-center gap-2 px-2">
+          <span className="text-[10px] uppercase font-bold text-slate-500 leading-none">Refresh<br/>(Hours)</span>
+          <input 
+            type="number" 
+            min="1" 
+            max="168"
+            value={refreshIntervalHours}
+            onChange={(e) => onSetRefreshInterval(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-12 bg-slate-900 border border-slate-700 text-white text-xs rounded px-1 py-1 focus:outline-none focus:border-blue-500"
+            title="Hard refresh interval in hours"
+          />
+        </div>
       </div>
     </div>
   );

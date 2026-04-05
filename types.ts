@@ -23,6 +23,7 @@ export interface AppState {
   overlays: OverlayItem[];
   showUI?: boolean;
   isFullScreen?: boolean;
+  refreshIntervalHours?: number;
 }
 
 export const DEFAULT_WIDTH = 200;

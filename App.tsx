@@ -7,7 +7,7 @@ import { Eye, X, Maximize, Minimize, Clipboard, Check } from 'lucide-react';
 
 // Helper to check for existing saved state
 const STORAGE_KEY = 'layout_forge_state';
-const REFRESH_INTERVAL = 8 * 60 * 60 * 1000; // 8 hours
+const DEFAULT_REFRESH_INTERVAL_HOURS = 8;
 const LAST_REFRESH_KEY = 'layout_forge_last_refresh';
 
 const App: React.FC = () => {
@@ -19,6 +19,8 @@ const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showUI, setShowUI] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isMouseIdle, setIsMouseIdle] = useState(false);
+  const [refreshIntervalHours, setRefreshIntervalHours] = useState(DEFAULT_REFRESH_INTERVAL_HOURS);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -51,6 +53,7 @@ const App: React.FC = () => {
           });
           setOverlays(parsed.overlays || []);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -71,6 +74,7 @@ const App: React.FC = () => {
           setBackground({ type: parsed.backgroundType, src: parsed.backgroundSrc });
           setOverlays(parsed.overlays);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
           // But we can store the intent to restore it
           if (parsed.isFullScreen) {
@@ -96,14 +100,15 @@ const App: React.FC = () => {
         backgroundSrc: background.src,
         overlays,
         showUI,
-        isFullScreen: !!document.fullscreenElement
+        isFullScreen: !!document.fullscreenElement,
+        refreshIntervalHours
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays, showUI, isFullScreen]);
+  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -114,18 +119,19 @@ const App: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // --- Hard Refresh Logic (Every 8 Hours) ---
+  // --- Hard Refresh Logic (Every X Hours) ---
   useEffect(() => {
     const checkRefresh = () => {
       const lastRefresh = localStorage.getItem(LAST_REFRESH_KEY);
       const now = Date.now();
+      const intervalMs = refreshIntervalHours * 60 * 60 * 1000;
 
       if (!lastRefresh) {
         localStorage.setItem(LAST_REFRESH_KEY, now.toString());
         return;
       }
 
-      if (now - parseInt(lastRefresh) >= REFRESH_INTERVAL) {
+      if (now - parseInt(lastRefresh) >= intervalMs) {
         // Update timestamp before reload to prevent infinite loop
         localStorage.setItem(LAST_REFRESH_KEY, now.toString());
         window.location.reload();
@@ -138,6 +144,35 @@ const App: React.FC = () => {
     // Then check every minute
     const interval = setInterval(checkRefresh, 60000);
     return () => clearInterval(interval);
+  }, [refreshIntervalHours]);
+
+  // --- Mouse Idle Logic (Hide cursor after 5s) ---
+  useEffect(() => {
+    let timeoutId: number;
+
+    const resetTimer = () => {
+      setIsMouseIdle(false);
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setIsMouseIdle(true);
+      }, 5000);
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('mousedown', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('touchstart', resetTimer);
+
+    // Initial timer
+    resetTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('mousedown', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('touchstart', resetTimer);
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   // --- Actions ---
@@ -307,7 +342,8 @@ const App: React.FC = () => {
       backgroundSrc: background.src,
       overlays,
       showUI,
-      isFullScreen: !!document.fullscreenElement
+      isFullScreen: !!document.fullscreenElement,
+      refreshIntervalHours
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -324,6 +360,7 @@ const App: React.FC = () => {
           });
           setOverlays(parsed.overlays);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -347,7 +384,8 @@ const App: React.FC = () => {
       backgroundSrc: background.src,
       overlays,
       showUI,
-      isFullScreen: !!document.fullscreenElement
+      isFullScreen: !!document.fullscreenElement,
+      refreshIntervalHours
     };
     try {
       const json = JSON.stringify(state);
@@ -375,7 +413,8 @@ const App: React.FC = () => {
       backgroundSrc: background.src,
       overlays,
       showUI,
-      isFullScreen: !!document.fullscreenElement
+      isFullScreen: !!document.fullscreenElement,
+      refreshIntervalHours
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -392,6 +431,7 @@ const App: React.FC = () => {
         });
         setOverlays(parsed.overlays || []);
         if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+        if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
         if (parsed.isFullScreen) {
           setTimeout(() => {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -416,7 +456,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-900 text-slate-100 overflow-hidden relative">
+    <div className={`flex flex-col h-screen w-screen bg-slate-900 text-slate-100 overflow-hidden relative ${isMouseIdle ? 'cursor-none' : ''}`}>
       
       {/* Floating Toggle Buttons (Visible when UI is hidden) */}
       {!showUI && (
@@ -452,6 +492,8 @@ const App: React.FC = () => {
           onToggleFullScreen={toggleFullScreen}
           onBookmark={handleBookmark}
           isFullScreen={isFullScreen}
+          refreshIntervalHours={refreshIntervalHours}
+          onSetRefreshInterval={setRefreshIntervalHours}
         />
       )}
       
