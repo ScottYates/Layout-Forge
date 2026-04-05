@@ -50,6 +50,12 @@ const App: React.FC = () => {
             src: parsed.backgroundSrc || '' 
           });
           setOverlays(parsed.overlays || []);
+          if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          if (parsed.isFullScreen) {
+            setTimeout(() => {
+              document.documentElement.requestFullscreen().catch(() => {});
+            }, 1000);
+          }
           return;
         }
       } catch (e) {
@@ -64,6 +70,17 @@ const App: React.FC = () => {
         if (parsed) {
           setBackground({ type: parsed.backgroundType, src: parsed.backgroundSrc });
           setOverlays(parsed.overlays);
+          if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
+          // But we can store the intent to restore it
+          if (parsed.isFullScreen) {
+            // Attempt to restore full screen after a short delay to ensure DOM is ready
+            setTimeout(() => {
+              document.documentElement.requestFullscreen().catch(() => {
+                console.log("Auto-fullscreen blocked by browser. User interaction required.");
+              });
+            }, 1000);
+          }
         }
       }
     } catch (e) {
@@ -77,14 +94,16 @@ const App: React.FC = () => {
       const state: AppState = {
         backgroundType: background.type,
         backgroundSrc: background.src,
-        overlays
+        overlays,
+        showUI,
+        isFullScreen: !!document.fullscreenElement
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays]);
+  }, [background, overlays, showUI, isFullScreen]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -286,7 +305,9 @@ const App: React.FC = () => {
     const state: AppState = {
       backgroundType: background.type,
       backgroundSrc: background.src,
-      overlays
+      overlays,
+      showUI,
+      isFullScreen: !!document.fullscreenElement
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -302,6 +323,12 @@ const App: React.FC = () => {
             src: parsed.backgroundSrc || '' 
           });
           setOverlays(parsed.overlays);
+          if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+          if (parsed.isFullScreen) {
+            setTimeout(() => {
+              document.documentElement.requestFullscreen().catch(() => {});
+            }, 1000);
+          }
         } else {
           alert("Invalid file format");
         }
@@ -318,7 +345,9 @@ const App: React.FC = () => {
     const state: AppState = {
       backgroundType: background.type,
       backgroundSrc: background.src,
-      overlays
+      overlays,
+      showUI,
+      isFullScreen: !!document.fullscreenElement
     };
     try {
       const json = JSON.stringify(state);
@@ -344,7 +373,9 @@ const App: React.FC = () => {
     const state: AppState = {
       backgroundType: background.type,
       backgroundSrc: background.src,
-      overlays
+      overlays,
+      showUI,
+      isFullScreen: !!document.fullscreenElement
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -360,6 +391,12 @@ const App: React.FC = () => {
           src: parsed.backgroundSrc || '' 
         });
         setOverlays(parsed.overlays || []);
+        if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
+        if (parsed.isFullScreen) {
+          setTimeout(() => {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }, 1000);
+        }
         setConfigModalOpen(false);
       }
     } catch (e) {

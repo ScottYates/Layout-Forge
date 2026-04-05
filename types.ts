@@ -21,6 +21,8 @@ export interface AppState {
   backgroundType: ContentType;
   backgroundSrc: string;
   overlays: OverlayItem[];
+  showUI?: boolean;
+  isFullScreen?: boolean;
 }
 
 export const DEFAULT_WIDTH = 200;
