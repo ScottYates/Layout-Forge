@@ -21,6 +21,8 @@ const App: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isMouseIdle, setIsMouseIdle] = useState(false);
   const [refreshIntervalHours, setRefreshIntervalHours] = useState(DEFAULT_REFRESH_INTERVAL_HOURS);
+  const [useSoftRefresh, setUseSoftRefresh] = useState(true);
+  const [softRefreshKey, setSoftRefreshKey] = useState(0);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -54,6 +56,7 @@ const App: React.FC = () => {
           setOverlays(parsed.overlays || []);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
+          if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -75,6 +78,7 @@ const App: React.FC = () => {
           setOverlays(parsed.overlays);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
+          if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
           // But we can store the intent to restore it
           if (parsed.isFullScreen) {
@@ -101,14 +105,15 @@ const App: React.FC = () => {
         overlays,
         showUI,
         isFullScreen: !!document.fullscreenElement,
-        refreshIntervalHours
+        refreshIntervalHours,
+        useSoftRefresh
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours]);
+  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -134,7 +139,15 @@ const App: React.FC = () => {
       if (now - parseInt(lastRefresh) >= intervalMs) {
         // Update timestamp before reload to prevent infinite loop
         localStorage.setItem(LAST_REFRESH_KEY, now.toString());
-        window.location.reload();
+        
+        if (useSoftRefresh) {
+          // Soft Refresh: Re-key the content area to force a full re-render of all iframes/images
+          setSoftRefreshKey(prev => prev + 1);
+          console.log("Soft refresh triggered at", new Date().toLocaleTimeString());
+        } else {
+          // Hard Refresh: Full page reload
+          window.location.reload();
+        }
       }
     };
 
@@ -343,7 +356,8 @@ const App: React.FC = () => {
       overlays,
       showUI,
       isFullScreen: !!document.fullscreenElement,
-      refreshIntervalHours
+      refreshIntervalHours,
+      useSoftRefresh
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -361,6 +375,7 @@ const App: React.FC = () => {
           setOverlays(parsed.overlays);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
+          if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -385,7 +400,8 @@ const App: React.FC = () => {
       overlays,
       showUI,
       isFullScreen: !!document.fullscreenElement,
-      refreshIntervalHours
+      refreshIntervalHours,
+      useSoftRefresh
     };
     try {
       const json = JSON.stringify(state);
@@ -414,7 +430,8 @@ const App: React.FC = () => {
       overlays,
       showUI,
       isFullScreen: !!document.fullscreenElement,
-      refreshIntervalHours
+      refreshIntervalHours,
+      useSoftRefresh
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -432,6 +449,7 @@ const App: React.FC = () => {
         setOverlays(parsed.overlays || []);
         if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
         if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
+        if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
         if (parsed.isFullScreen) {
           setTimeout(() => {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -494,11 +512,14 @@ const App: React.FC = () => {
           isFullScreen={isFullScreen}
           refreshIntervalHours={refreshIntervalHours}
           onSetRefreshInterval={setRefreshIntervalHours}
+          useSoftRefresh={useSoftRefresh}
+          onToggleSoftRefresh={() => setUseSoftRefresh(!useSoftRefresh)}
         />
       )}
       
       {/* Workspace Area */}
       <div 
+        key={softRefreshKey}
         className="flex-1 relative overflow-auto bg-slate-900/50"
         onMouseDown={handleBackgroundClick} // Deselect when clicking empty space
       >

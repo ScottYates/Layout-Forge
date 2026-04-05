@@ -24,6 +24,7 @@ export interface AppState {
   showUI?: boolean;
   isFullScreen?: boolean;
   refreshIntervalHours?: number;
+  useSoftRefresh?: boolean;
 }
 
 export const DEFAULT_WIDTH = 200;

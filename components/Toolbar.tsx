@@ -18,6 +18,8 @@ interface ToolbarProps {
   isFullScreen: boolean;
   refreshIntervalHours: number;
   onSetRefreshInterval: (hours: number) => void;
+  useSoftRefresh: boolean;
+  onToggleSoftRefresh: () => void;
 }
 
 const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-600 cursor-pointer";
@@ -37,7 +39,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onBookmark,
   isFullScreen,
   refreshIntervalHours,
-  onSetRefreshInterval
+  onSetRefreshInterval,
+  useSoftRefresh,
+  onToggleSoftRefresh
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
@@ -213,6 +217,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className="w-12 bg-slate-900 border border-slate-700 text-white text-xs rounded px-1 py-1 focus:outline-none focus:border-blue-500"
             title="Hard refresh interval in hours"
           />
+        </div>
+
+        <div className="flex items-center gap-2 px-2 border-l border-slate-700">
+           <button 
+             onClick={onToggleSoftRefresh}
+             className={`text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${useSoftRefresh ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+             title={useSoftRefresh ? "Soft Refresh: Reloads content without page reload (preserves full-screen)" : "Hard Refresh: Full page reload (exits full-screen)"}
+           >
+             {useSoftRefresh ? 'Soft' : 'Hard'}
+           </button>
         </div>
       </div>
     </div>
