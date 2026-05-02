@@ -65,6 +65,72 @@ To preview the built application locally:
 npm run preview
 ```
 
+## Server Deployment
+
+Because Layout Forge is a client-side Single Page Application (SPA), deploying to a production server requires building the static files and serving them.
+
+### 1. Build the Application
+```bash
+npm run build
+```
+This generates a `dist` folder containing your optimized production files.
+
+### 2. Serve the Static Files
+
+You can use a simple static server like `serve`, or configure Nginx/Apache.
+
+**Using `serve`:**
+Install `serve` globally:
+```bash
+npm install -g serve
+```
+Run the application on port 3000:
+```bash
+serve -s dist -l 3000
+```
+*(The `-s` flag tells it to serve as a Single Page Application, routing all requests to `index.html`)*
+
+### 3. Setting Up a systemd Service (Linux)
+
+To ensure your application runs continuously and restarts on server reboot, set up a Systemd service file.
+
+1. Create a service file at `/etc/systemd/system/layout-forge.service`:
+   ```bash
+   sudo nano /etc/systemd/system/layout-forge.service
+   ```
+
+2. Add the following content (update the paths and user to match your setup):
+   ```ini
+   [Unit]
+   Description=Layout Forge Service
+   After=network.target
+   
+   [Service]
+   Type=simple
+   User=your_username
+   Group=your_group
+   WorkingDirectory=/path/to/layout-forge
+   # Make sure `serve` is in the user's PATH, or provide an absolute path to the global `serve` binary:
+   ExecStart=/usr/bin/env serve -s dist -l 3000
+   Restart=on-failure
+   RestartSec=10
+   
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. Reload systemd, enable, and start the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable layout-forge.service
+   sudo systemctl start layout-forge.service
+   ```
+
+4. Check the status:
+   ```bash
+   sudo systemctl status layout-forge.service
+   ```
+
 ## Configuration
 
 The application state (overlays, background, UI settings) is stored in a JSON format. You can view or manually edit this configuration clicking the `JSON` icon in the toolbar.
