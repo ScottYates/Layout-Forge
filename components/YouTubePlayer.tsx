@@ -1,6 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { YouTubeQuality, YOUTUBE_QUALITY_OPTIONS } from '../types';
 import { loadYouTubeApi } from '../utils/helpers';
+
+// How long the quality badge stays fully visible after the last "activity"
+// (mouse move, touch, or quality change) before fading out.
+const BADGE_VISIBLE_MS = 3000;
+// How long the fade transition takes. Keep this in sync with the
+// `duration-${BADGE_FADE_MS}` Tailwind class on the badge wrapper.
+const BADGE_FADE_MS = 500;
 
 interface YouTubePlayerProps {
   videoId: string;
@@ -70,11 +77,64 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // support the requested tier).
   const [actualQuality, setActualQuality] = useState<YouTubeQuality | null>(null);
 
+  // Badge visibility. Auto-fades after BADGE_VISIBLE_MS of "no activity".
+  // "Activity" = a quality change OR a global mouse/touch event.
+  const [badgeVisible, setBadgeVisible] = useState(false);
+  const hideTimeoutRef = useRef<number | null>(null);
+
   // Stable callback ref so changing identity doesn't tear down the player.
   const onQualityChangeRef = useRef(onQualityChange);
   useEffect(() => {
     onQualityChangeRef.current = onQualityChange;
   }, [onQualityChange]);
+
+  // Reveal the badge and (re)start the auto-hide timer. Safe to call from
+  // anywhere — if the badge is already visible, the timer is simply reset
+  // to BADGE_VISIBLE_MS from now, so continuous activity keeps it shown.
+  const revealBadge = useCallback(() => {
+    setBadgeVisible(true);
+    if (hideTimeoutRef.current !== null) {
+      window.clearTimeout(hideTimeoutRef.current);
+    }
+    hideTimeoutRef.current = window.setTimeout(() => {
+      setBadgeVisible(false);
+      hideTimeoutRef.current = null;
+    }, BADGE_VISIBLE_MS);
+  }, []);
+
+  // Whenever the actual quality changes (initial, optimistic, or YT-driven),
+  // reveal the badge so the user can see what YT is serving.
+  useEffect(() => {
+    if (actualQuality) {
+      revealBadge();
+    }
+  }, [actualQuality, revealBadge]);
+
+  // Global activity listener: any mouse move or touch on the page reveals
+  // the badge. We listen on `window` rather than the wrapper div because
+  // the YouTube iframe swallows mouse events — events that happen *over*
+  // the iframe don't bubble up to the parent. A window-level listener
+  // catches the user's intent regardless of which element is under the
+  // pointer. (We also drop these on touch devices, where mousemove is
+  // not fired.)
+  useEffect(() => {
+    const onActivity = () => revealBadge();
+    window.addEventListener('mousemove', onActivity);
+    window.addEventListener('touchstart', onActivity);
+    return () => {
+      window.removeEventListener('mousemove', onActivity);
+      window.removeEventListener('touchstart', onActivity);
+    };
+  }, [revealBadge]);
+
+  // Cancel any pending hide timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current !== null) {
+        window.clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 1) Load the API once.
   useEffect(() => {
@@ -256,7 +316,13 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       />
       {showQualityBadge && actualQuality && (
         <div
-          className="absolute top-2 left-2 z-10 pointer-events-none flex flex-col gap-0.5"
+          // The wrapper handles the fade. `pointer-events-none` so the badge
+          // never blocks the iframe's own interactions.
+          className={`absolute top-2 left-2 z-10 pointer-events-none flex flex-col gap-0.5 transition-opacity ease-out ${
+            badgeVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+          // duration is wired to BADGE_FADE_MS so they stay in sync.
+          style={{ transitionDuration: `${BADGE_FADE_MS}ms` }}
           // Tooltip explains the mismatch if YT downgraded.
           title={
             isMismatch
