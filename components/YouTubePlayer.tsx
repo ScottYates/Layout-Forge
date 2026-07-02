@@ -66,6 +66,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // calls (so we don't re-issue the same setPlaybackQuality on every render)
   // and to detect when YT echoes the same value back.
   const lastAppliedRef = useRef<string | null>(null);
+  // The current desired quality, kept in a ref so the onStateChange handler
+  // (which is created when the player is constructed and lives in a closure)
+  // can always read the latest value. Without this, every PLAYING /
+  // BUFFERING state event re-applies the *initial* quality, silently
+  // reverting any change the user made via the toolbar dropdown.
+  const desiredQualityRef = useRef<YouTubeQuality | undefined>(quality);
   // True once the iframe_api script has loaded (or failed). Until then we
   // render a plain iframe so the user sees something instead of a blank box.
   const [apiReady, setApiReady] = useState(false);
@@ -87,6 +93,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   useEffect(() => {
     onQualityChangeRef.current = onQualityChange;
   }, [onQualityChange]);
+
+  // Keep the desired quality ref in sync with the prop. The onStateChange
+  // handler (created once when the player is constructed) reads from this
+  // ref, so it always sees the latest user-selected value rather than the
+  // stale value from its closure.
+  useEffect(() => {
+    desiredQualityRef.current = quality;
+  }, [quality]);
 
   // Reveal the badge and (re)start the auto-hide timer. Safe to call from
   // anywhere — if the badge is already visible, the timer is simply reset
@@ -194,7 +208,9 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       events: {
         onReady: (event) => {
           // Apply the requested quality as soon as the player is ready.
-          const q = quality || 'auto';
+          // Read from the ref, not the closure — `quality` here is the
+          // value at construction time; the ref always has the latest.
+          const q = desiredQualityRef.current || 'auto';
           applyQuality(event.target, q);
           // Start muted autoplay (background-style).
           try {
@@ -211,9 +227,17 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           // videos — the API's setPlaybackQuality is a request that YT
           // can silently drop if the video isn't ready yet, so re-issuing
           // it on state transitions catches those cases.
+          //
+          // We MUST read the desired quality from the ref, not the
+          // closure. This handler is created once when the player is
+          // constructed; if it captured the `quality` prop directly, it
+          // would always apply the *initial* quality and silently revert
+          // any change the user made via the toolbar dropdown. The ref is
+          // updated whenever the `quality` prop changes (see the
+          // useEffect above), so it always reflects the latest intent.
           const s = event.data;
           if (s === STATE_PLAYING || s === STATE_BUFFERING) {
-            const q = quality || 'auto';
+            const q = desiredQualityRef.current || 'auto';
             applyQuality(event.target, q);
           }
         },
