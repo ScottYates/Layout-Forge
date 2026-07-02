@@ -294,8 +294,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       rel: '0',
     });
     if (quality && quality !== 'auto') params.set('vq', quality);
+    // Same pointer-events override as the API-driven path below.
+    const pointerEventsClass = interactive
+      ? 'pointer-events-auto'
+      : (className?.includes('pointer-events-none') ? 'pointer-events-none' : '');
     return (
-      <div className={className} style={{ ...style, position: 'relative' }}>
+      <div
+        className={`${className ?? ''} ${pointerEventsClass}`.trim()}
+        style={{ ...style, position: 'relative' }}
+      >
         <iframe
           src={`https://www.youtube.com/embed/${videoId}?${params.toString()}`}
           className="w-full h-full border-0"
@@ -307,8 +314,22 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     );
   }
 
+  // Compute the wrapper's pointer-events. The `interactive` prop is the
+  // single source of truth: when true, the user MUST be able to click
+  // the IFrame's native controls (play bar, quality menu, etc.), so we
+  // force pointer-events-auto regardless of what the caller put in
+  // `className`. When false, we leave the caller's className alone —
+  // typically `pointer-events-none` so the YouTube area doesn't block
+  // dragging/resizing of overlays that sit on top of it.
+  const pointerEventsClass = interactive
+    ? 'pointer-events-auto'
+    : (className?.includes('pointer-events-none') ? 'pointer-events-none' : '');
+
   return (
-    <div className={className} style={{ ...style, position: 'relative' }}>
+    <div
+      className={`${className ?? ''} ${pointerEventsClass}`.trim()}
+      style={{ ...style, position: 'relative' }}
+    >
       <div
         ref={containerRef}
         // YT.Player will replace this div's contents with an iframe.
