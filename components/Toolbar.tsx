@@ -1,7 +1,28 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Plus, Image as ImageIcon, Globe, Monitor, Settings, Trash, EyeOff, Maximize, Minimize, Link, FileJson, Bookmark } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  Plus,
+  Image as ImageIcon,
+  Globe,
+  Monitor,
+  Settings,
+  Trash,
+  EyeOff,
+  Maximize,
+  Minimize,
+  Link,
+  FileJson,
+  Bookmark,
+  Youtube,
+} from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
-import { ContentType, OverlayItem } from '../types';
+import {
+  ContentType,
+  OverlayItem,
+  YouTubeQuality,
+  YOUTUBE_QUALITY_OPTIONS,
+} from '../types';
 
 interface ToolbarProps {
   currentBackground: { type: ContentType, src: string };
@@ -20,6 +41,9 @@ interface ToolbarProps {
   onSetRefreshInterval: (hours: number) => void;
   useSoftRefresh: boolean;
   onToggleSoftRefresh: () => void;
+  defaultYoutubeQuality: YouTubeQuality;
+  onSetDefaultYoutubeQuality: (q: YouTubeQuality) => void;
+  onApplyDefaultQualityToOverlays: () => void;
 }
 
 const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-600 cursor-pointer";
@@ -41,7 +65,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   refreshIntervalHours,
   onSetRefreshInterval,
   useSoftRefresh,
-  onToggleSoftRefresh
+  onToggleSoftRefresh,
+  defaultYoutubeQuality,
+  onSetDefaultYoutubeQuality,
+  onApplyDefaultQualityToOverlays,
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
@@ -220,13 +247,38 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         <div className="flex items-center gap-2 px-2 border-l border-slate-700">
-           <button 
+           <button
              onClick={onToggleSoftRefresh}
              className={`text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${useSoftRefresh ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}
              title={useSoftRefresh ? "Soft Refresh: Reloads content without page reload (preserves full-screen)" : "Hard Refresh: Full page reload (exits full-screen)"}
            >
              {useSoftRefresh ? 'Soft' : 'Hard'}
            </button>
+        </div>
+
+        {/* YouTube Quality — applies to background & new overlays, with a
+            one-click "push to existing overlays" affordance. */}
+        <div className="flex items-center gap-1 px-2 border-l border-slate-700" title="Default YouTube playback quality">
+          <Youtube size={16} className="text-red-400" />
+          <select
+            value={defaultYoutubeQuality}
+            onChange={(e) => onSetDefaultYoutubeQuality(e.target.value as YouTubeQuality)}
+            className="bg-slate-900 border border-slate-700 text-white text-xs rounded px-1 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
+            aria-label="Default YouTube playback quality"
+          >
+            {YOUTUBE_QUALITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={onApplyDefaultQualityToOverlays}
+            className="text-[10px] uppercase font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+            title="Apply current default to all YouTube overlays that don't have their own override"
+          >
+            Apply All
+          </button>
         </div>
       </div>
     </div>

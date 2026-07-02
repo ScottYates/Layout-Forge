@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { OverlayElement } from './components/OverlayElement';
-import { OverlayItem, AppState, ContentType, DEFAULT_WIDTH, DEFAULT_HEIGHT } from './types';
-import { generateId, downloadJson, getYouTubeId, getYouTubeEmbedUrl, isImageUrl } from './utils/helpers';
+import { YouTubePlayer } from './components/YouTubePlayer';
+import {
+  OverlayItem,
+  AppState,
+  ContentType,
+  DEFAULT_WIDTH,
+  DEFAULT_HEIGHT,
+  YouTubeQuality,
+  DEFAULT_YOUTUBE_QUALITY,
+} from './types';
+import { generateId, downloadJson, getYouTubeId, isImageUrl } from './utils/helpers';
 import { Eye, X, Maximize, Minimize, Clipboard, Check } from 'lucide-react';
 
 // Helper to check for existing saved state
@@ -23,6 +32,10 @@ const App: React.FC = () => {
   const [refreshIntervalHours, setRefreshIntervalHours] = useState(DEFAULT_REFRESH_INTERVAL_HOURS);
   const [useSoftRefresh, setUseSoftRefresh] = useState(true);
   const [softRefreshKey, setSoftRefreshKey] = useState(0);
+  // Global default YouTube quality. Applied to the background video and used
+  // as the initial value for new YouTube overlays. Per-overlay `youtubeQuality`
+  // (on OverlayItem) overrides this.
+  const [defaultYoutubeQuality, setDefaultYoutubeQuality] = useState<YouTubeQuality>(DEFAULT_YOUTUBE_QUALITY);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -49,14 +62,15 @@ const App: React.FC = () => {
       try {
         const parsed: AppState = JSON.parse(decodeURIComponent(configParam));
         if (parsed) {
-          setBackground({ 
-            type: parsed.backgroundType || ContentType.IMAGE, 
-            src: parsed.backgroundSrc || '' 
+          setBackground({
+            type: parsed.backgroundType || ContentType.IMAGE,
+            src: parsed.backgroundSrc || ''
           });
           setOverlays(parsed.overlays || []);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
+          if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -79,6 +93,7 @@ const App: React.FC = () => {
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
+          if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
           // But we can store the intent to restore it
           if (parsed.isFullScreen) {
@@ -106,14 +121,15 @@ const App: React.FC = () => {
         showUI,
         isFullScreen: !!document.fullscreenElement,
         refreshIntervalHours,
-        useSoftRefresh
+        useSoftRefresh,
+        defaultYoutubeQuality,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh]);
+  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh, defaultYoutubeQuality]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -233,6 +249,8 @@ const App: React.FC = () => {
       height,
       zIndex: maxZ + 1,
       opacity: 1,
+      // YouTube overlays inherit the global default; user can override per-overlay.
+      ...(finalType === ContentType.YOUTUBE ? { youtubeQuality: defaultYoutubeQuality } : {}),
     };
     setOverlays(prev => [...prev, newOverlay]);
     setSelectedId(newOverlay.id);
@@ -327,6 +345,19 @@ const App: React.FC = () => {
     }
   };
 
+  // Push the current global default quality onto every existing YouTube overlay
+  // that doesn't already have its own override. Useful when you've changed the
+  // default and want to retroactively apply it to all matching overlays.
+  const handleApplyDefaultQualityToOverlays = () => {
+    setOverlays(prev =>
+      prev.map(o =>
+        o.type === ContentType.YOUTUBE && !o.youtubeQuality
+          ? { ...o, youtubeQuality: defaultYoutubeQuality }
+          : o,
+      ),
+    );
+  };
+
   // --- Modal Logic ---
 
   const openUrlModal = (title: string, callback: (src: string) => void, defaultValue = '') => {
@@ -357,7 +388,8 @@ const App: React.FC = () => {
       showUI,
       isFullScreen: !!document.fullscreenElement,
       refreshIntervalHours,
-      useSoftRefresh
+      useSoftRefresh,
+      defaultYoutubeQuality,
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -368,14 +400,15 @@ const App: React.FC = () => {
       try {
         const parsed: AppState = JSON.parse(e.target?.result as string);
         if (parsed.overlays && Array.isArray(parsed.overlays)) {
-          setBackground({ 
-            type: parsed.backgroundType || ContentType.IMAGE, 
-            src: parsed.backgroundSrc || '' 
+          setBackground({
+            type: parsed.backgroundType || ContentType.IMAGE,
+            src: parsed.backgroundSrc || ''
           });
           setOverlays(parsed.overlays);
           if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
+          if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -401,7 +434,8 @@ const App: React.FC = () => {
       showUI,
       isFullScreen: !!document.fullscreenElement,
       refreshIntervalHours,
-      useSoftRefresh
+      useSoftRefresh,
+      defaultYoutubeQuality,
     };
     try {
       const json = JSON.stringify(state);
@@ -431,7 +465,8 @@ const App: React.FC = () => {
       showUI,
       isFullScreen: !!document.fullscreenElement,
       refreshIntervalHours,
-      useSoftRefresh
+      useSoftRefresh,
+      defaultYoutubeQuality,
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -442,14 +477,15 @@ const App: React.FC = () => {
     try {
       const parsed: AppState = JSON.parse(configJson);
       if (parsed) {
-        setBackground({ 
-          type: parsed.backgroundType || ContentType.IMAGE, 
-          src: parsed.backgroundSrc || '' 
+        setBackground({
+          type: parsed.backgroundType || ContentType.IMAGE,
+          src: parsed.backgroundSrc || ''
         });
         setOverlays(parsed.overlays || []);
         if (parsed.showUI !== undefined) setShowUI(parsed.showUI);
         if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
         if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
+        if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
         if (parsed.isFullScreen) {
           setTimeout(() => {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -497,7 +533,7 @@ const App: React.FC = () => {
       )}
 
       {showUI && (
-        <Toolbar 
+        <Toolbar
           currentBackground={background}
           onAddOverlay={handleAddOverlay}
           onSetBackground={handleSetBackground}
@@ -514,6 +550,9 @@ const App: React.FC = () => {
           onSetRefreshInterval={setRefreshIntervalHours}
           useSoftRefresh={useSoftRefresh}
           onToggleSoftRefresh={() => setUseSoftRefresh(!useSoftRefresh)}
+          defaultYoutubeQuality={defaultYoutubeQuality}
+          onSetDefaultYoutubeQuality={setDefaultYoutubeQuality}
+          onApplyDefaultQualityToOverlays={handleApplyDefaultQualityToOverlays}
         />
       )}
       
@@ -533,11 +572,10 @@ const App: React.FC = () => {
               />
             ) : background.type === ContentType.YOUTUBE ? (
               <div className="absolute inset-0 w-full h-full overflow-hidden">
-                 <iframe
-                   src={getYouTubeEmbedUrl(background.src)}
+                 <YouTubePlayer
+                   videoId={background.src}
+                   quality={defaultYoutubeQuality}
                    className="w-full h-full pointer-events-none"
-                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                   referrerPolicy="strict-origin-when-cross-origin"
                    title="Background Video"
                  />
                  <div className="absolute inset-0 z-10 bg-transparent" />
@@ -571,6 +609,7 @@ const App: React.FC = () => {
               onEdit={handleEditOverlay}
               onLayerAction={handleLayerAction}
               scale={1}
+              defaultYoutubeQuality={defaultYoutubeQuality}
             />
           ))}
         </div>

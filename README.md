@@ -6,6 +6,7 @@ Layout Forge is a powerful layout editor that allows you to overlay images and i
 
 - **Dynamic Overlays**: Add images or websites as resizable and movable overlays.
 - **Backgrounds**: Set static images or YouTube videos as your workspace background.
+- **YouTube Quality Control**: Pick the playback quality for the YouTube background and any YouTube overlay — from 144p up to 4K/8K, or let YouTube decide automatically.
 - **Persistence**: Automatically saves your layout to local storage.
 - **Import/Export**: Export your configuration as JSON and import it back later.
 - **Bookmarkable**: Generate a unique URL that contains your entire configuration.
@@ -146,8 +147,31 @@ export interface AppState {
   isFullScreen?: boolean;
   refreshIntervalHours?: number;
   useSoftRefresh?: boolean;
+  defaultYoutubeQuality?: YouTubeQuality; // Global default YouTube quality
 }
 ```
+
+## YouTube Quality Control
+
+YouTube doesn't honor the `vq` URL parameter on modern embeds, so Layout
+Forge uses the [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
+to drive playback quality.
+
+- **Toolbar** has a YouTube-quality dropdown (red YouTube icon). This sets the
+  *global default* — used for the background video and any new YouTube overlays
+  you create. The "Apply All" button next to it pushes that default onto every
+  existing YouTube overlay that doesn't already have a per-overlay override.
+- **Per-overlay**: select a YouTube overlay to expose a quality dropdown in
+  its top control bar. Pick a value to override the global default for that
+  overlay, or pick "Default" to clear the override and inherit again.
+- **Auto-downgrade detection**: if YouTube can't honor the requested quality
+  (e.g. you ask for 1080p on a 720p-only stream), the player fires
+  `onPlaybackQualityChange` and Layout Forge updates the stored quality to the
+  actual level so the UI stays in sync with reality.
+
+Available qualities: `auto`, `highres` (max available, up to 8K/4K), `hd2160`,
+`hd1440`, `hd1080`, `hd720`, `large` (480p), `medium` (360p), `small` (240p),
+`tiny` (144p).
 
 ## Contributing
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { OverlayItem, ContentType } from '../types';
-import { Trash2, Pencil, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Timer } from 'lucide-react';
+import { OverlayItem, ContentType, YouTubeQuality, YOUTUBE_QUALITY_OPTIONS, DEFAULT_YOUTUBE_QUALITY } from '../types';
+import { Trash2, Pencil, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Timer, Youtube } from 'lucide-react';
 import { getYouTubeEmbedUrl } from '../utils/helpers';
+import { YouTubePlayer } from './YouTubePlayer';
 
 interface OverlayElementProps {
   item: OverlayItem;
@@ -12,6 +13,8 @@ interface OverlayElementProps {
   onDelete: (id: string) => void;
   onLayerAction: (id: string, action: 'front' | 'back' | 'forward' | 'backward') => void;
   scale: number;
+  /** Global default — used when the overlay has no per-overlay youtubeQuality. */
+  defaultYoutubeQuality?: YouTubeQuality;
 }
 
 export const OverlayElement: React.FC<OverlayElementProps> = ({
@@ -22,7 +25,8 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   onEdit,
   onDelete,
   onLayerAction,
-  scale = 1
+  scale = 1,
+  defaultYoutubeQuality = DEFAULT_YOUTUBE_QUALITY,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -230,13 +234,20 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
         ) : item.type === ContentType.YOUTUBE ? (
           <>
             <div className="absolute inset-0 z-10 bg-transparent" />
-            <iframe 
+            <YouTubePlayer
               key={contentKey}
-              src={activeUrl}
-              className="w-full h-full pointer-events-none" 
+              videoId={item.src}
+              // Per-overlay override > global default.
+              quality={item.youtubeQuality ?? defaultYoutubeQuality}
+              // Notify parent if YT (or the user) changed the effective quality,
+              // so the dropdown stays in sync with reality.
+              onQualityChange={(actual) => {
+                if (actual !== item.youtubeQuality) {
+                  onUpdate(item.id, { youtubeQuality: actual });
+                }
+              }}
+              className="w-full h-full pointer-events-none"
               title={`frame-${item.id}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              referrerPolicy="strict-origin-when-cross-origin"
               style={{ opacity: item.opacity }}
             />
           </>
@@ -325,8 +336,8 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
              {/* Refresh Timer Input */}
              <div className="flex items-center gap-1 pl-1 border-r border-slate-600 pr-2 mr-1" title="Auto-refresh interval in seconds (0 to disable)">
                <Timer size={14} className={item.refreshInterval ? "text-blue-400" : "text-slate-500"} />
-               <input 
-                 type="number" 
+               <input
+                 type="number"
                  min="0"
                  placeholder="Off"
                  value={item.refreshInterval || ''}
@@ -339,13 +350,45 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
                <span className="text-[10px] text-slate-500">s</span>
              </div>
 
+             {/* YouTube quality (only for YouTube overlays) */}
+             {item.type === ContentType.YOUTUBE && (
+               <div
+                 className="flex items-center gap-1 pl-1 border-r border-slate-600 pr-2 mr-1"
+                 title={`Playback quality. Empty = inherit the toolbar default (${defaultYoutubeQuality}).`}
+               >
+                 <Youtube size={14} className="text-red-400" />
+                 <select
+                   value={item.youtubeQuality ?? ''}
+                   onChange={(e) => {
+                     const v = e.target.value;
+                     if (v === '') {
+                       // Empty = inherit default. We achieve that by clearing
+                       // the override, so the renderer falls back to defaultYoutubeQuality.
+                       onUpdate(item.id, { youtubeQuality: undefined });
+                     } else {
+                       onUpdate(item.id, { youtubeQuality: v as YouTubeQuality });
+                     }
+                   }}
+                   className="bg-transparent text-xs text-white focus:outline-none cursor-pointer pr-1"
+                   aria-label="YouTube playback quality for this overlay"
+                 >
+                   <option value="">Default ({defaultYoutubeQuality})</option>
+                   {YOUTUBE_QUALITY_OPTIONS.map((opt) => (
+                     <option key={opt.value} value={opt.value}>
+                       {opt.label}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             )}
+
              <span className="text-xs text-slate-400 px-1">Opacity</span>
-             <input 
-               type="range" 
-               min="0.1" 
-               max="1" 
-               step="0.1" 
-               value={item.opacity} 
+             <input
+               type="range"
+               min="0.1"
+               max="1"
+               step="0.1"
+               value={item.opacity}
                onChange={(e) => onUpdate(item.id, { opacity: parseFloat(e.target.value) })}
                className="w-16 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
              />
