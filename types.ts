@@ -19,7 +19,7 @@ export type YouTubeQuality =
   | 'large'     // 480p
   | 'medium'    // 360p
   | 'small'     // 240p
-  | 'tiny';     // 144p
+  | 'default';  // YouTube's "default" tier (the lowest the API accepts)
 
 export const YOUTUBE_QUALITY_OPTIONS: { value: YouTubeQuality; label: string; description: string }[] = [
   { value: 'auto',   label: 'Auto',          description: 'Let YouTube pick based on bandwidth' },
@@ -31,7 +31,7 @@ export const YOUTUBE_QUALITY_OPTIONS: { value: YouTubeQuality; label: string; de
   { value: 'large',  label: '480p',          description: 'Standard' },
   { value: 'medium', label: '360p',          description: 'Medium' },
   { value: 'small',  label: '240p',          description: 'Low' },
-  { value: 'tiny',   label: '144p',          description: 'Lowest' },
+  { value: 'default', label: 'Default',       description: 'Lowest tier YouTube API accepts' },
 ];
 
 export const DEFAULT_YOUTUBE_QUALITY: YouTubeQuality = 'auto';
