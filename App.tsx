@@ -36,6 +36,12 @@ const App: React.FC = () => {
   // as the initial value for new YouTube overlays. Per-overlay `youtubeQuality`
   // (on OverlayItem) overrides this.
   const [defaultYoutubeQuality, setDefaultYoutubeQuality] = useState<YouTubeQuality>(DEFAULT_YOUTUBE_QUALITY);
+  // When true, the YouTube IFrame's native controls (play/pause bar, quality
+  // menu, etc.) are visible on every YouTube element. Useful as a debugging
+  // / verification aid — the YT quality menu shows the actual available
+  // tiers, which tells you whether the source caps below your requested
+  // quality.
+  const [showYouTubeNativeControls, setShowYouTubeNativeControls] = useState(false);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -71,6 +77,7 @@ const App: React.FC = () => {
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
+          if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -94,6 +101,7 @@ const App: React.FC = () => {
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
+          if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
           // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
           // But we can store the intent to restore it
           if (parsed.isFullScreen) {
@@ -123,13 +131,14 @@ const App: React.FC = () => {
         refreshIntervalHours,
         useSoftRefresh,
         defaultYoutubeQuality,
+        showYouTubeNativeControls,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh, defaultYoutubeQuality]);
+  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh, defaultYoutubeQuality, showYouTubeNativeControls]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -390,6 +399,7 @@ const App: React.FC = () => {
       refreshIntervalHours,
       useSoftRefresh,
       defaultYoutubeQuality,
+      showYouTubeNativeControls,
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -409,6 +419,7 @@ const App: React.FC = () => {
           if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
+          if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -436,6 +447,7 @@ const App: React.FC = () => {
       refreshIntervalHours,
       useSoftRefresh,
       defaultYoutubeQuality,
+      showYouTubeNativeControls,
     };
     try {
       const json = JSON.stringify(state);
@@ -467,6 +479,7 @@ const App: React.FC = () => {
       refreshIntervalHours,
       useSoftRefresh,
       defaultYoutubeQuality,
+      showYouTubeNativeControls,
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -486,6 +499,7 @@ const App: React.FC = () => {
         if (parsed.refreshIntervalHours !== undefined) setRefreshIntervalHours(parsed.refreshIntervalHours);
         if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
         if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
+        if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
         if (parsed.isFullScreen) {
           setTimeout(() => {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -553,6 +567,8 @@ const App: React.FC = () => {
           defaultYoutubeQuality={defaultYoutubeQuality}
           onSetDefaultYoutubeQuality={setDefaultYoutubeQuality}
           onApplyDefaultQualityToOverlays={handleApplyDefaultQualityToOverlays}
+          showYouTubeNativeControls={showYouTubeNativeControls}
+          onToggleYouTubeNativeControls={() => setShowYouTubeNativeControls(!showYouTubeNativeControls)}
         />
       )}
       
@@ -575,6 +591,7 @@ const App: React.FC = () => {
                  <YouTubePlayer
                    videoId={background.src}
                    quality={defaultYoutubeQuality}
+                   interactive={showYouTubeNativeControls}
                    className="w-full h-full pointer-events-none"
                    title="Background Video"
                  />
@@ -610,6 +627,7 @@ const App: React.FC = () => {
               onLayerAction={handleLayerAction}
               scale={1}
               defaultYoutubeQuality={defaultYoutubeQuality}
+              youtubeNativeControls={showYouTubeNativeControls}
             />
           ))}
         </div>

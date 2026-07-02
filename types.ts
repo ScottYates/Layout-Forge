@@ -59,6 +59,7 @@ export interface AppState {
   refreshIntervalHours?: number;
   useSoftRefresh?: boolean;
   defaultYoutubeQuality?: YouTubeQuality; // Global default for YouTube playback
+  showYouTubeNativeControls?: boolean; // Show the YouTube IFrame's own controls (play bar, quality menu, etc.)
 }
 
 export const DEFAULT_WIDTH = 200;

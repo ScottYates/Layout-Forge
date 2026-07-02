@@ -15,6 +15,7 @@ import {
   FileJson,
   Bookmark,
   Youtube,
+  MonitorPlay,
 } from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
 import {
@@ -44,6 +45,8 @@ interface ToolbarProps {
   defaultYoutubeQuality: YouTubeQuality;
   onSetDefaultYoutubeQuality: (q: YouTubeQuality) => void;
   onApplyDefaultQualityToOverlays: () => void;
+  showYouTubeNativeControls: boolean;
+  onToggleYouTubeNativeControls: () => void;
 }
 
 const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-600 cursor-pointer";
@@ -69,6 +72,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   defaultYoutubeQuality,
   onSetDefaultYoutubeQuality,
   onApplyDefaultQualityToOverlays,
+  showYouTubeNativeControls,
+  onToggleYouTubeNativeControls,
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
@@ -278,6 +283,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             title="Apply current default to all YouTube overlays that don't have their own override"
           >
             Apply All
+          </button>
+          <button
+            onClick={onToggleYouTubeNativeControls}
+            className={`flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${
+              showYouTubeNativeControls
+                ? 'bg-red-600 hover:bg-red-500 text-white'
+                : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+            }`}
+            title={
+              showYouTubeNativeControls
+                ? 'Hide YouTube IFrame native controls (play bar, quality menu, etc.)'
+                : 'Show YouTube IFrame native controls — useful for verifying the actual quality YouTube is serving via its quality menu'
+            }
+            aria-pressed={showYouTubeNativeControls}
+          >
+            <MonitorPlay size={12} />
+            YT Controls
           </button>
         </div>
       </div>

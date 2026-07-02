@@ -15,6 +15,8 @@ interface OverlayElementProps {
   scale: number;
   /** Global default — used when the overlay has no per-overlay youtubeQuality. */
   defaultYoutubeQuality?: YouTubeQuality;
+  /** When true, the YouTube IFrame's native controls are visible. */
+  youtubeNativeControls?: boolean;
 }
 
 export const OverlayElement: React.FC<OverlayElementProps> = ({
@@ -27,6 +29,7 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
   onLayerAction,
   scale = 1,
   defaultYoutubeQuality = DEFAULT_YOUTUBE_QUALITY,
+  youtubeNativeControls = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -239,6 +242,7 @@ export const OverlayElement: React.FC<OverlayElementProps> = ({
               videoId={item.src}
               // Per-overlay override > global default.
               quality={item.youtubeQuality ?? defaultYoutubeQuality}
+              interactive={youtubeNativeControls}
               // Notify parent if YT (or the user) changed the effective quality,
               // so the dropdown stays in sync with reality.
               onQualityChange={(actual) => {
