@@ -60,7 +60,21 @@ export interface AppState {
   useSoftRefresh?: boolean;
   defaultYoutubeQuality?: YouTubeQuality; // Global default for YouTube playback
   showYouTubeNativeControls?: boolean; // Show the YouTube IFrame's own controls (play bar, quality menu, etc.)
+  // Background YouTube cycling. When `backgroundCyclingEnabled` is true and
+  // the background is a YouTube video, the app rotates through
+  // `backgroundPlaylist` every `backgroundRotationSeconds`. When cycling is
+  // off, the background falls back to the single `backgroundSrc`.
+  backgroundPlaylist?: string[]; // List of YouTube video IDs (or full URLs — they get parsed)
+  backgroundCyclingEnabled?: boolean;
+  backgroundRotationSeconds?: number; // Seconds between rotations
+  backgroundPlaylistIndex?: number; // Current position. Persisted so refreshes keep the same video
 }
 
 export const DEFAULT_WIDTH = 200;
 export const DEFAULT_HEIGHT = 150;
+
+// Background YouTube cycling defaults / limits
+export const DEFAULT_BACKGROUND_ROTATION_SECONDS = 60;
+export const MIN_BACKGROUND_ROTATION_SECONDS = 5;
+export const MAX_BACKGROUND_ROTATION_SECONDS = 86400; // 24h
+export const MAX_BACKGROUND_PLAYLIST_ENTRIES = 50;

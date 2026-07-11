@@ -16,6 +16,11 @@ import {
   Bookmark,
   Youtube,
   MonitorPlay,
+  ListVideo,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { fileToDataUri } from '../utils/helpers';
 import {
@@ -47,6 +52,15 @@ interface ToolbarProps {
   onApplyDefaultQualityToOverlays: () => void;
   showYouTubeNativeControls: boolean;
   onToggleYouTubeNativeControls: () => void;
+  // Background YouTube cycling
+  backgroundPlaylist: string[];
+  backgroundCyclingEnabled: boolean;
+  backgroundRotationSeconds: number;
+  backgroundPlaylistIndex: number;
+  onOpenPlaylistModal: () => void;
+  onPlaylistNext: () => void;
+  onPlaylistPrev: () => void;
+  onToggleCycling: () => void;
 }
 
 const BTN_PRIMARY = "flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-md transition-all active:scale-95 border border-slate-600 cursor-pointer";
@@ -74,6 +88,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onApplyDefaultQualityToOverlays,
   showYouTubeNativeControls,
   onToggleYouTubeNativeControls,
+  backgroundPlaylist,
+  backgroundCyclingEnabled,
+  backgroundRotationSeconds,
+  backgroundPlaylistIndex,
+  onOpenPlaylistModal,
+  onPlaylistNext,
+  onPlaylistPrev,
+  onToggleCycling,
 }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
@@ -301,6 +323,76 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <MonitorPlay size={12} />
             YT Controls
           </button>
+        </div>
+
+        {/* Background YouTube Cycling — opens the modal to manage the list
+            and rotation interval. When a list is present, show position +
+            manual prev/next so the user can step through without waiting
+            for the timer. */}
+        <div className="flex items-center gap-1 px-2 border-l border-slate-700">
+          <button
+            onClick={onOpenPlaylistModal}
+            className={`flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-1 rounded transition-colors ${
+              backgroundCyclingEnabled
+                ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                : backgroundPlaylist.length > 0
+                ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
+            }`}
+            title={
+              backgroundPlaylist.length === 0
+                ? 'Set up a list of YouTube videos to cycle through as the background'
+                : backgroundCyclingEnabled
+                ? `Cycling ${backgroundPlaylistIndex + 1}/${backgroundPlaylist.length} — every ${backgroundRotationSeconds}s. Click to edit.`
+                : `${backgroundPlaylist.length} video${backgroundPlaylist.length === 1 ? '' : 's'} ready, cycling is paused. Click to edit.`
+            }
+            aria-pressed={backgroundCyclingEnabled}
+          >
+            <ListVideo size={12} />
+            {backgroundPlaylist.length === 0
+              ? 'Playlist'
+              : backgroundCyclingEnabled
+              ? `${backgroundPlaylistIndex + 1}/${backgroundPlaylist.length}`
+              : `${backgroundPlaylist.length} ready`}
+          </button>
+          {backgroundCyclingEnabled && backgroundPlaylist.length > 1 && (
+            <>
+              <button
+                onClick={onToggleCycling}
+                className="flex items-center text-[10px] uppercase font-bold px-1.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+                title="Pause cycling (stays on the current video)"
+                aria-label="Pause cycling"
+              >
+                <Pause size={12} />
+              </button>
+              <button
+                onClick={onPlaylistPrev}
+                className="flex items-center text-[10px] uppercase font-bold px-1.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                title="Previous video (manual — doesn't reset the timer)"
+                aria-label="Previous video"
+              >
+                <ChevronLeft size={12} />
+              </button>
+              <button
+                onClick={onPlaylistNext}
+                className="flex items-center text-[10px] uppercase font-bold px-1.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                title="Next video (manual — doesn't reset the timer)"
+                aria-label="Next video"
+              >
+                <ChevronRight size={12} />
+              </button>
+            </>
+          )}
+          {!backgroundCyclingEnabled && backgroundPlaylist.length > 0 && (
+            <button
+              onClick={onToggleCycling}
+              className="flex items-center text-[10px] uppercase font-bold px-1.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+              title="Resume cycling"
+              aria-label="Resume cycling"
+            >
+              <Play size={12} />
+            </button>
+          )}
         </div>
       </div>
     </div>

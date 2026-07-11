@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { OverlayElement } from './components/OverlayElement';
 import { YouTubePlayer } from './components/YouTubePlayer';
+import { PlaylistModal } from './components/PlaylistModal';
 import {
   OverlayItem,
   AppState,
@@ -10,6 +11,10 @@ import {
   DEFAULT_HEIGHT,
   YouTubeQuality,
   DEFAULT_YOUTUBE_QUALITY,
+  DEFAULT_BACKGROUND_ROTATION_SECONDS,
+  MIN_BACKGROUND_ROTATION_SECONDS,
+  MAX_BACKGROUND_ROTATION_SECONDS,
+  MAX_BACKGROUND_PLAYLIST_ENTRIES,
 } from './types';
 import { generateId, downloadJson, getYouTubeId, isImageUrl } from './utils/helpers';
 import { Eye, X, Maximize, Minimize, Clipboard, Check } from 'lucide-react';
@@ -43,6 +48,17 @@ const App: React.FC = () => {
   // quality.
   const [showYouTubeNativeControls, setShowYouTubeNativeControls] = useState(false);
 
+  // Background YouTube cycling. When `backgroundCyclingEnabled` is true and
+  // the background is a YouTube video, the app rotates through
+  // `backgroundPlaylist` every `backgroundRotationSeconds`. When cycling is
+  // off, the background falls back to the single `backgroundSrc`.
+  const [backgroundPlaylist, setBackgroundPlaylist] = useState<string[]>([]);
+  const [backgroundCyclingEnabled, setBackgroundCyclingEnabled] = useState(false);
+  const [backgroundRotationSeconds, setBackgroundRotationSeconds] = useState(DEFAULT_BACKGROUND_ROTATION_SECONDS);
+  // Current position in the playlist. Persisted so a page refresh keeps the
+  // same video; advanced by the rotation effect below.
+  const [backgroundPlaylistIndex, setBackgroundPlaylistIndex] = useState(0);
+
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
@@ -55,6 +71,9 @@ const App: React.FC = () => {
   // Config JSON Modal
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configJson, setConfigJson] = useState('');
+
+  // Background YouTube playlist modal
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   // --- Persistence & Initialization ---
@@ -78,6 +97,10 @@ const App: React.FC = () => {
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
+          if (parsed.backgroundPlaylist !== undefined) setBackgroundPlaylist(parsed.backgroundPlaylist);
+          if (parsed.backgroundCyclingEnabled !== undefined) setBackgroundCyclingEnabled(parsed.backgroundCyclingEnabled);
+          if (parsed.backgroundRotationSeconds !== undefined) setBackgroundRotationSeconds(parsed.backgroundRotationSeconds);
+          if (parsed.backgroundPlaylistIndex !== undefined) setBackgroundPlaylistIndex(parsed.backgroundPlaylistIndex);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -102,6 +125,10 @@ const App: React.FC = () => {
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
+          if (parsed.backgroundPlaylist !== undefined) setBackgroundPlaylist(parsed.backgroundPlaylist);
+          if (parsed.backgroundCyclingEnabled !== undefined) setBackgroundCyclingEnabled(parsed.backgroundCyclingEnabled);
+          if (parsed.backgroundRotationSeconds !== undefined) setBackgroundRotationSeconds(parsed.backgroundRotationSeconds);
+          if (parsed.backgroundPlaylistIndex !== undefined) setBackgroundPlaylistIndex(parsed.backgroundPlaylistIndex);
           // We don't set isFullScreen state directly here as it's derived from document.fullscreenElement
           // But we can store the intent to restore it
           if (parsed.isFullScreen) {
@@ -132,13 +159,17 @@ const App: React.FC = () => {
         useSoftRefresh,
         defaultYoutubeQuality,
         showYouTubeNativeControls,
+        backgroundPlaylist,
+        backgroundCyclingEnabled,
+        backgroundRotationSeconds,
+        backgroundPlaylistIndex,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       // Ignore errors (e.g. quota exceeded or security blocks)
       console.warn("Failed to save state to local storage", e);
     }
-  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh, defaultYoutubeQuality, showYouTubeNativeControls]);
+  }, [background, overlays, showUI, isFullScreen, refreshIntervalHours, useSoftRefresh, defaultYoutubeQuality, showYouTubeNativeControls, backgroundPlaylist, backgroundCyclingEnabled, backgroundRotationSeconds, backgroundPlaylistIndex]);
 
   // Handle Full Screen Change Events
   useEffect(() => {
@@ -148,6 +179,43 @@ const App: React.FC = () => {
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
+
+  // --- Background YouTube Cycling (rotate through backgroundPlaylist) ---
+  //
+  // The setInterval advances backgroundPlaylistIndex every N seconds. When
+  // the index changes, the <YouTubePlayer videoId={...}> prop updates and
+  // the player tears down and rebuilds with the new video. Manual prev/next
+  // jumps from the toolbar call setBackgroundPlaylistIndex directly — they
+  // don't reset the timer, so the next automatic rotation still happens on
+  // schedule.
+  useEffect(() => {
+    // Cycling only applies to a YouTube background with a non-empty list.
+    if (!backgroundCyclingEnabled) return;
+    if (background.type !== ContentType.YOUTUBE) return;
+    if (backgroundPlaylist.length < 2) return; // 0 or 1 entry → nothing to cycle
+
+    // Clamp the interval to the allowed range. Defensive — the modal already
+    // enforces this, but a malformed config could still slip through.
+    const seconds = Math.max(
+      MIN_BACKGROUND_ROTATION_SECONDS,
+      Math.min(MAX_BACKGROUND_ROTATION_SECONDS, backgroundRotationSeconds || DEFAULT_BACKGROUND_ROTATION_SECONDS),
+    );
+
+    const interval = setInterval(() => {
+      setBackgroundPlaylistIndex((prev) => (prev + 1) % backgroundPlaylist.length);
+    }, seconds * 1000);
+
+    return () => clearInterval(interval);
+  }, [backgroundCyclingEnabled, background.type, backgroundPlaylist, backgroundRotationSeconds]);
+
+  // When the user enables cycling or replaces the playlist, reset to the
+  // first entry. This avoids the confusing "I just hit play and the rotation
+  // jumped me 7 videos ahead" case. We intentionally don't reset on every
+  // index change (the effect re-runs when backgroundPlaylist changes; the
+  // index update is a separate state write).
+  useEffect(() => {
+    setBackgroundPlaylistIndex(0);
+  }, [backgroundCyclingEnabled, backgroundPlaylist]);
 
   // --- Hard Refresh Logic (Every X Hours) ---
   useEffect(() => {
@@ -367,6 +435,61 @@ const App: React.FC = () => {
     );
   };
 
+  // --- Background YouTube Cycling Handlers ---
+
+  // Parse a free-form text blob of URLs/IDs into a clean list of YouTube
+  // video IDs. The user can paste anything: full watch URLs, short youtu.be
+  // URLs, embed URLs, or raw 11-char IDs. One entry per line (blank lines
+  // and duplicates are ignored). Limited to MAX_BACKGROUND_PLAYLIST_ENTRIES.
+  const parsePlaylistInput = (raw: string): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // Try as a full URL first; fall back to treating the raw text as an ID.
+      const id = getYouTubeId(trimmed) || (/^[A-Za-z0-9_-]{11}$/.test(trimmed) ? trimmed : null);
+      if (!id) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+      if (out.length >= MAX_BACKGROUND_PLAYLIST_ENTRIES) break;
+    }
+    return out;
+  };
+
+  const handleApplyPlaylist = (raw: string, enabled: boolean, seconds: number) => {
+    const next = parsePlaylistInput(raw);
+    setBackgroundPlaylist(next);
+    setBackgroundCyclingEnabled(enabled);
+    setBackgroundRotationSeconds(
+      Math.max(
+        MIN_BACKGROUND_ROTATION_SECONDS,
+        Math.min(MAX_BACKGROUND_ROTATION_SECONDS, Math.floor(seconds) || DEFAULT_BACKGROUND_ROTATION_SECONDS),
+      ),
+    );
+    // If the user is enabling cycling but the background is not currently
+    // a YouTube video, switch it to one so the cycling has something to
+    // play. Use the first entry in the new list.
+    if (enabled && next.length > 0 && background.type !== ContentType.YOUTUBE) {
+      setBackground({ type: ContentType.YOUTUBE, src: next[0] });
+    }
+  };
+
+  const handlePlaylistNext = () => {
+    if (backgroundPlaylist.length === 0) return;
+    setBackgroundPlaylistIndex((i) => (i + 1) % backgroundPlaylist.length);
+  };
+
+  const handlePlaylistPrev = () => {
+    if (backgroundPlaylist.length === 0) return;
+    setBackgroundPlaylistIndex((i) => (i - 1 + backgroundPlaylist.length) % backgroundPlaylist.length);
+  };
+
+  const handleToggleCycling = () => {
+    setBackgroundCyclingEnabled((v) => !v);
+  };
+
   // --- Modal Logic ---
 
   const openUrlModal = (title: string, callback: (src: string) => void, defaultValue = '') => {
@@ -400,6 +523,10 @@ const App: React.FC = () => {
       useSoftRefresh,
       defaultYoutubeQuality,
       showYouTubeNativeControls,
+      backgroundPlaylist,
+      backgroundCyclingEnabled,
+      backgroundRotationSeconds,
+      backgroundPlaylistIndex,
     };
     downloadJson(state, `layout-forge-${new Date().toISOString().slice(0, 10)}.json`);
   };
@@ -420,6 +547,10 @@ const App: React.FC = () => {
           if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
           if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
           if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
+          if (parsed.backgroundPlaylist !== undefined) setBackgroundPlaylist(parsed.backgroundPlaylist);
+          if (parsed.backgroundCyclingEnabled !== undefined) setBackgroundCyclingEnabled(parsed.backgroundCyclingEnabled);
+          if (parsed.backgroundRotationSeconds !== undefined) setBackgroundRotationSeconds(parsed.backgroundRotationSeconds);
+          if (parsed.backgroundPlaylistIndex !== undefined) setBackgroundPlaylistIndex(parsed.backgroundPlaylistIndex);
           if (parsed.isFullScreen) {
             setTimeout(() => {
               document.documentElement.requestFullscreen().catch(() => {});
@@ -448,6 +579,10 @@ const App: React.FC = () => {
       useSoftRefresh,
       defaultYoutubeQuality,
       showYouTubeNativeControls,
+      backgroundPlaylist,
+      backgroundCyclingEnabled,
+      backgroundRotationSeconds,
+      backgroundPlaylistIndex,
     };
     try {
       const json = JSON.stringify(state);
@@ -480,6 +615,10 @@ const App: React.FC = () => {
       useSoftRefresh,
       defaultYoutubeQuality,
       showYouTubeNativeControls,
+      backgroundPlaylist,
+      backgroundCyclingEnabled,
+      backgroundRotationSeconds,
+      backgroundPlaylistIndex,
     };
     setConfigJson(JSON.stringify(state, null, 2));
     setConfigModalOpen(true);
@@ -500,6 +639,10 @@ const App: React.FC = () => {
         if (parsed.useSoftRefresh !== undefined) setUseSoftRefresh(parsed.useSoftRefresh);
         if (parsed.defaultYoutubeQuality !== undefined) setDefaultYoutubeQuality(parsed.defaultYoutubeQuality);
         if (parsed.showYouTubeNativeControls !== undefined) setShowYouTubeNativeControls(parsed.showYouTubeNativeControls);
+        if (parsed.backgroundPlaylist !== undefined) setBackgroundPlaylist(parsed.backgroundPlaylist);
+        if (parsed.backgroundCyclingEnabled !== undefined) setBackgroundCyclingEnabled(parsed.backgroundCyclingEnabled);
+        if (parsed.backgroundRotationSeconds !== undefined) setBackgroundRotationSeconds(parsed.backgroundRotationSeconds);
+        if (parsed.backgroundPlaylistIndex !== undefined) setBackgroundPlaylistIndex(parsed.backgroundPlaylistIndex);
         if (parsed.isFullScreen) {
           setTimeout(() => {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -522,6 +665,18 @@ const App: React.FC = () => {
   const handleBackgroundClick = () => {
     setSelectedId(null);
   };
+
+  // Compute the effective YouTube video ID for the background. When cycling
+  // is enabled and the playlist has at least one entry, use the current
+  // position; otherwise fall back to the single background.src. The index
+  // is clamped defensively in case the playlist shrunk beneath it.
+  const effectiveBackgroundVideoId = (() => {
+    if (background.type !== ContentType.YOUTUBE) return background.src;
+    if (!backgroundCyclingEnabled) return background.src;
+    if (backgroundPlaylist.length === 0) return background.src;
+    const safeIndex = Math.max(0, Math.min(backgroundPlaylistIndex, backgroundPlaylist.length - 1));
+    return backgroundPlaylist[safeIndex] || background.src;
+  })();
 
   return (
     <div className={`flex flex-col h-screen w-screen bg-slate-900 text-slate-100 overflow-hidden relative ${isMouseIdle ? 'cursor-none' : ''}`}>
@@ -556,6 +711,7 @@ const App: React.FC = () => {
           onClear={handleClear}
           onOpenUrlModal={openUrlModal}
           onOpenConfigModal={handleOpenConfig}
+          onOpenPlaylistModal={() => setPlaylistModalOpen(true)}
           onHideUI={() => setShowUI(false)}
           onToggleFullScreen={toggleFullScreen}
           onBookmark={handleBookmark}
@@ -569,6 +725,14 @@ const App: React.FC = () => {
           onApplyDefaultQualityToOverlays={handleApplyDefaultQualityToOverlays}
           showYouTubeNativeControls={showYouTubeNativeControls}
           onToggleYouTubeNativeControls={() => setShowYouTubeNativeControls(!showYouTubeNativeControls)}
+          backgroundPlaylist={backgroundPlaylist}
+          backgroundCyclingEnabled={backgroundCyclingEnabled}
+          backgroundRotationSeconds={backgroundRotationSeconds}
+          backgroundPlaylistIndex={backgroundPlaylistIndex}
+          onApplyPlaylist={handleApplyPlaylist}
+          onPlaylistNext={handlePlaylistNext}
+          onPlaylistPrev={handlePlaylistPrev}
+          onToggleCycling={handleToggleCycling}
         />
       )}
       
@@ -589,7 +753,7 @@ const App: React.FC = () => {
             ) : background.type === ContentType.YOUTUBE ? (
               <div className="absolute inset-0 w-full h-full overflow-hidden">
                  <YouTubePlayer
-                   videoId={background.src}
+                   videoId={effectiveBackgroundVideoId}
                    quality={defaultYoutubeQuality}
                    interactive={showYouTubeNativeControls}
                    className="w-full h-full pointer-events-none"
@@ -638,10 +802,12 @@ const App: React.FC = () => {
         <div className="h-6 bg-slate-950 text-slate-500 text-xs flex items-center px-4 justify-between border-t border-slate-800 z-50">
           <span>{overlays.length} item(s)</span>
           <span>
-            {background.type === ContentType.YOUTUBE 
-              ? 'YouTube Background Active' 
-              : background.src 
-                ? 'Background Active' 
+            {background.type === ContentType.YOUTUBE
+              ? backgroundCyclingEnabled && backgroundPlaylist.length > 0
+                ? `YouTube Cycling ${backgroundPlaylistIndex + 1}/${backgroundPlaylist.length} (every ${backgroundRotationSeconds}s)`
+                : 'YouTube Background Active'
+              : background.src
+                ? 'Background Active'
                 : 'No Background'}
           </span>
         </div>
@@ -696,6 +862,20 @@ const App: React.FC = () => {
           </form>
         </div>
       )}
+
+      {/* Background YouTube Playlist Modal */}
+      <PlaylistModal
+        isOpen={playlistModalOpen}
+        initialPlaylist={backgroundPlaylist}
+        initialCyclingEnabled={backgroundCyclingEnabled}
+        initialRotationSeconds={backgroundRotationSeconds}
+        currentIndex={backgroundPlaylistIndex}
+        onApply={handleApplyPlaylist}
+        onToggleCycling={handleToggleCycling}
+        onPrev={handlePlaylistPrev}
+        onNext={handlePlaylistNext}
+        onClose={() => setPlaylistModalOpen(false)}
+      />
 
       {/* Configuration JSON Modal */}
       {configModalOpen && (

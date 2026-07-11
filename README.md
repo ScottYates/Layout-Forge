@@ -148,6 +148,11 @@ export interface AppState {
   refreshIntervalHours?: number;
   useSoftRefresh?: boolean;
   defaultYoutubeQuality?: YouTubeQuality; // Global default YouTube quality
+  showYouTubeNativeControls?: boolean;    // Show the YouTube IFrame's own controls
+  backgroundPlaylist?: string[];          // YouTube video IDs to cycle through as background
+  backgroundCyclingEnabled?: boolean;     // Whether cycling is currently active
+  backgroundRotationSeconds?: number;     // Seconds between rotations (5 – 86400)
+  backgroundPlaylistIndex?: number;       // Current position in the playlist (persists across reloads)
 }
 ```
 
@@ -171,7 +176,33 @@ to drive playback quality.
 
 Available qualities: `auto`, `highres` (max available, up to 8K/4K), `hd2160`,
 `hd1440`, `hd1080`, `hd720`, `large` (480p), `medium` (360p), `small` (240p),
-`tiny` (144p).
+`default` (lowest tier the IFrame API accepts).
+
+## Background YouTube Cycling
+
+The background YouTube video can be set to automatically rotate through a
+user-supplied list of URLs. Open the **Playlist** button in the toolbar
+(shows `1/N` when cycling is active, `N ready` when paused, or `Playlist`
+when empty) to manage the list and rotation interval.
+
+- **List format:** one YouTube URL or video ID per line. Full `youtube.com/watch?v=…`,
+  short `youtu.be/…`, embed URLs, and raw 11-character IDs are all accepted.
+  Duplicates and unparseable lines are filtered out (the modal shows a live
+  count of valid vs. invalid entries).
+- **Rotation interval:** 5 seconds minimum, 24 hours maximum. Default 60 seconds.
+- **Cycling state** persists across reloads, JSON export/import, and bookmark URLs.
+- **Manual controls:** the toolbar shows `◀` and `▶` buttons when cycling is on,
+  so you can step through without waiting for the timer. Manual steps don't
+  reset the timer — the next automatic rotation still happens on schedule.
+- **Pause/Resume** via the toolbar play/pause button. The position is
+  preserved, so resuming continues from where you paused.
+- The footer shows the current position and interval, e.g. `YouTube Cycling
+  3/7 (every 60s)`.
+
+Cycling only applies when the background is a YouTube video — image and
+generic-iframe backgrounds ignore the playlist. If cycling is enabled but
+the playlist is empty, the background falls back to the single `backgroundSrc`
+URL.
 
 ## Contributing
 
